@@ -12,13 +12,13 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Separator } from "@radix-ui/react-separator";
-import { DataTable } from "./data-table";
 import { columns } from "./columns";
 import { ResponseBody } from "@/app/types/response-body";
 import { Team, TeamCharacteristics } from "@/app/types/team";
 import CreateTeamDialog from "@/components/create-team-dialog";
+import { AppTable } from "@/components/app-table";
 
-async function Sport() {
+async function TeamPage() {
   const data = await fetch("http://localhost:4000/team", {
     method: "GET",
     next: {
@@ -70,11 +70,11 @@ async function Sport() {
           <CreateTeamDialog
             characteristicsResponse={characteristicsResponse.payload}
           />
-          <DataTable columns={columns} data={response.payload} />
+          <AppTable columns={columns} data={response.payload} />
         </div>
       </SidebarInset>
     </SidebarProvider>
   );
 }
 
-export default Sport;
+export default TeamPage;

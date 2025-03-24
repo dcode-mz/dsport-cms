@@ -49,10 +49,11 @@ const TeamsActions = ({ team }: { team: Team }) => {
 
 export const columns: ColumnDef<Team>[] = [
   {
+
     accessorKey: "club.logo",
     header: () => "Logotipo",
     cell: ({ row }) => {
-      const logo = row.original.club?.logo; // Verifica se club existe antes de acessar logo
+      const logo = row.original.club?.logo;
 
       return logo ? (
         <Image
@@ -63,7 +64,7 @@ export const columns: ColumnDef<Team>[] = [
           className="h-8 w-8 rounded-full"
         />
       ) : (
-        <span>—</span> // Placeholder caso não tenha logo
+        <span>—</span>
       );
     },
   },

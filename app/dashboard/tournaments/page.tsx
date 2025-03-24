@@ -12,13 +12,13 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Separator } from "@radix-ui/react-separator";
-import { DataTable } from "./data-table";
 import { columns } from "./columns";
 import CreateTournamentDialog from "@/components/create-tournament-dialog";
 import { Tournament, TournamentCharacteristics } from "@/app/types/tournament";
 import { ResponseBody } from "@/app/types/response-body";
+import { AppTable } from "@/components/app-table";
 
-async function Sport() {
+async function TournamentPage() {
   const data = await fetch("http://localhost:4000/tournament", {
     method: "GET",
     next: {
@@ -26,14 +26,18 @@ async function Sport() {
     },
   });
 
-  const characteristicsData = await fetch("http://localhost:4000/tournament/characteristics", {
-    method: "GET",
-    next: {
-      tags: ["get-characteristics-tournaments"],
-    },
-  });
+  const characteristicsData = await fetch(
+    "http://localhost:4000/tournament/characteristics",
+    {
+      method: "GET",
+      next: {
+        tags: ["get-characteristics-tournaments"],
+      },
+    }
+  );
   const response: Tournament[] = await data.json();
-  const characteristicsResponse: ResponseBody<TournamentCharacteristics> = await characteristicsData.json();
+  const characteristicsResponse: ResponseBody<TournamentCharacteristics> =
+    await characteristicsData.json();
 
   return (
     <SidebarProvider>
@@ -62,12 +66,14 @@ async function Sport() {
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 pt-10 md:pl-20">
           <h1 className="text-3xl font-bold">Torneios</h1>
-          <CreateTournamentDialog characteristicsResponse={characteristicsResponse.payload} />
-          <DataTable columns={columns} data={response} />
+          <CreateTournamentDialog
+            characteristicsResponse={characteristicsResponse.payload}
+          />
+          <AppTable columns={columns} data={response} />
         </div>
       </SidebarInset>
     </SidebarProvider>
   );
 }
 
-export default Sport;
+export default TournamentPage;

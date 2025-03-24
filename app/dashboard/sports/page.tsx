@@ -12,18 +12,19 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Separator } from "@radix-ui/react-separator";
-import { DataTable } from "./data-table";
-import { columns, SportI } from "./columns";
+import { columns } from "./columns";
 import CreateSportDialog from "@/components/create-sport-dialog";
+import { Sport } from "@/app/types/sport";
+import { AppTable } from "@/components/app-table";
 
-async function Sport() {
+async function SportPage() {
   const data = await fetch("http://localhost:4000/sports", {
     method: "GET",
     next: {
       tags: ["get-sports"],
     },
   });
-  const response: SportI[] = await data.json();
+  const response: Sport[] = await data.json();
 
   return (
     <SidebarProvider>
@@ -53,11 +54,11 @@ async function Sport() {
         <div className="flex flex-1 flex-col gap-4 p-4 pt-10 md:pl-20">
           <h1 className="text-3xl font-bold">Desportos</h1>
           <CreateSportDialog />
-          <DataTable columns={columns} data={response} />
+          <AppTable columns={columns} data={response} />
         </div>
       </SidebarInset>
     </SidebarProvider>
   );
 }
 
-export default Sport;
+export default SportPage;

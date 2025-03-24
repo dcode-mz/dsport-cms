@@ -12,13 +12,13 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Separator } from "@radix-ui/react-separator";
-import { DataTable } from "./data-table";
 import { columns } from "./columns";
 import { ResponseBody } from "@/app/types/response-body";
 import CreateClubDialog from "@/components/create-club-dialog";
 import { Club } from "@/app/types/club";
+import { AppTable } from "@/components/app-table";
 
-async function Sport() {
+async function ClubPage() {
   const data = await fetch("http://localhost:4000/club", {
     method: "GET",
     next: {
@@ -56,11 +56,11 @@ async function Sport() {
         <div className="flex flex-1 flex-col gap-4 p-4 pt-10 md:pl-20">
           <h1 className="text-3xl font-bold">Clubes</h1>
           <CreateClubDialog />
-          <DataTable columns={columns} data={response.payload} />
+          <AppTable columns={columns} data={response.payload} />
         </div>
       </SidebarInset>
     </SidebarProvider>
   );
 }
 
-export default Sport;
+export default ClubPage;
