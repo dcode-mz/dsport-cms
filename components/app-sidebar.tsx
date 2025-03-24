@@ -2,21 +2,17 @@
 
 import * as React from "react";
 import {
-  AudioWaveform,
   Bolt,
   Boxes,
-  Command,
-  Frame,
+  Calendar,
   GalleryVerticalEnd,
   LayoutDashboard,
-  Map,
-  PieChart,
+  PersonStanding,
   Trophy,
   Volleyball,
 } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
-import { NavProjects } from "@/components/nav-projects";
 import { NavUser } from "@/components/nav-user";
 import { TeamSwitcher } from "@/components/team-switcher";
 import {
@@ -36,8 +32,8 @@ import Link from "next/link";
 // This is sample data.
 const data = {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
+    name: "Adolfo Ricardo",
+    email: "adolfo.ricardo@dcode.co.mz",
     avatar: "/avatars/shadcn.jpg",
   },
   teams: [
@@ -46,20 +42,20 @@ const data = {
       logo: GalleryVerticalEnd,
       plan: "Enterprise",
     },
-    {
-      name: "Acme Corp.",
-      logo: AudioWaveform,
-      plan: "Startup",
-    },
-    {
-      name: "Evil Corp.",
-      logo: Command,
-      plan: "Free",
-    },
+    // {
+    //   name: "Acme Corp.",
+    //   logo: AudioWaveform,
+    //   plan: "Startup",
+    // },
+    // {
+    //   name: "Evil Corp.",
+    //   logo: Command,
+    //   plan: "Free",
+    // },
   ],
   navMain: [
     {
-      title: "Sport",
+      title: "Desportos",
       url: "#",
       icon: Volleyball,
       isActive: true,
@@ -71,7 +67,7 @@ const data = {
       ],
     },
     {
-      title: "Tournaments",
+      title: "Torneios",
       url: "#",
       icon: Trophy,
       items: [
@@ -82,7 +78,7 @@ const data = {
       ],
     },
     {
-      title: "Clubs",
+      title: "Clubes",
       url: "#",
       icon: Bolt,
       items: [
@@ -93,13 +89,35 @@ const data = {
       ],
     },
     {
-      title: "Teams",
+      title: "Equipas",
       url: "#",
       icon: Boxes,
       items: [
         {
           title: "List",
           url: "/dashboard/teams",
+        },
+      ],
+    },
+    {
+      title: "Jogadores",
+      url: "#",
+      icon: PersonStanding,
+      items: [
+        {
+          title: "List",
+          url: "/dashboard/players",
+        },
+      ],
+    },
+    {
+      title: "Temporadas",
+      url: "#",
+      icon: Calendar,
+      items: [
+        {
+          title: "List",
+          url: "/dashboard/seasons",
         },
       ],
     },
@@ -150,23 +168,23 @@ const data = {
     //   ],
     // },
   ],
-  projects: [
-    {
-      name: "Design Engineering",
-      url: "#",
-      icon: Frame,
-    },
-    {
-      name: "Sales & Marketing",
-      url: "#",
-      icon: PieChart,
-    },
-    {
-      name: "Travel",
-      url: "#",
-      icon: Map,
-    },
-  ],
+  // projects: [
+  //   {
+  //     name: "Design Engineering",
+  //     url: "#",
+  //     icon: Frame,
+  //   },
+  //   {
+  //     name: "Sales & Marketing",
+  //     url: "#",
+  //     icon: PieChart,
+  //   },
+  //   {
+  //     name: "Travel",
+  //     url: "#",
+  //     icon: Map,
+  //   },
+  // ],
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -188,7 +206,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarMenu>
         </SidebarGroup>
         <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
+        {/* <NavProjects projects={data.projects} /> */}
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />
