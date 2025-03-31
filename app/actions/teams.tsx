@@ -19,7 +19,6 @@ const createTeamFormSchema = z.object({
 export async function createTeam(data: z.infer<typeof createTeamFormSchema>) {
   try {
     createTeamFormSchema.parse(data);
-    console.log("TESTAND", data);
     await fetch("http://localhost:4000/team/", {
       method: "POST",
       body: JSON.stringify({

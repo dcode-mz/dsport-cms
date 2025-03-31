@@ -10,21 +10,29 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+const ruleSchema = z.object({
+  id: z.string().uuid(),
+  priority: z.number().int().min(1, {
+    message: "A prioridade deve ser um número inteiro e maior que 0",
+  }),
+});
+
 const createTournamentFormSchema = z.object({
   name: z.string().min(3, "O nome deve ter pelo menos 3 caracteres"),
   logo: z.instanceof(File).optional(),
-  country: z.string(),
+  country: z.string().uuid(),
   organizer: z.string(),
-  gender: z.string(),
-  type: z.string(),
-  level: z.string(),
-  format: z.string(),
-  category: z.string(),
-  tiebreakerCriteria: z.string(),
-  sport: z.string(),
-  description: z
-    .string()
-    .min(10, "A descrição deve ter pelo menos 10 caracteres"),
+  gender: z.string().uuid(),
+  type: z.string().uuid(),
+  level: z.string().uuid(),
+  category: z.string().uuid(),
+  tieBreakerRuleTypes: z.array(ruleSchema).optional(),
+  sport: z.string().uuid(),
+  season: z.string().uuid(),
+  startDate: z.string().datetime(),
+  endDate: z.string().datetime(),
+  description: z.string().optional(),
+  third_place: z.boolean().optional(),
 });
 
 export async function createTournament(
@@ -46,10 +54,13 @@ export async function createTournament(
         genderId: data.gender,
         typeId: data.type,
         levelId: data.level,
-        formatId: data.format,
         categoryId: data.category,
-        tiebreakerCriteriaId: data.tiebreakerCriteria,
+        tieBreakerRule: data.tieBreakerRuleTypes,
         sportId: data.sport,
+        seasonId: data.season,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        third_place: data.third_place,
       }),
       headers: {
         "Content-Type": "application/json",

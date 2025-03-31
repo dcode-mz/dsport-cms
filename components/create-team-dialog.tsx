@@ -59,9 +59,8 @@ export default function CreateTeamDialog({
 
   function onSubmit(values: z.infer<typeof createTeamFormSchema>) {
     startTransition(async () => {
-      console.log(values);
       await createTeam(values);
-      toast.success("Equipa criado com sucesso!");
+      toast.success("Equipa criada com sucesso!");
       setOpen(false);
       form.reset();
     });
@@ -109,9 +108,9 @@ export default function CreateTeamDialog({
               name="location"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Location</FormLabel>
+                  <FormLabel>Localização</FormLabel>
                   <FormControl>
-                    <Input placeholder="Location" {...field} />
+                    <Input placeholder="Localização" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -162,7 +161,7 @@ export default function CreateTeamDialog({
               />
             ))}
             <Button type="submit" disabled={isPending}>
-              {isPending ? "Criando..." : "Criar Torneio"}
+              {isPending ? "Criando..." : "Criar Equipa"}
             </Button>
           </form>
         </Form>

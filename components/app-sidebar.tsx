@@ -75,6 +75,10 @@ const data = {
           title: "List",
           url: "/dashboard/tournaments",
         },
+        {
+          title: "Create",
+          url: "/dashboard/tournaments/create",
+        },
       ],
     },
     {

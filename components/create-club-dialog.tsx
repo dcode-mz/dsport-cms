@@ -130,7 +130,7 @@ export default function CreateClubDialog() {
               name="foundingDate"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Data do Torneio</FormLabel>
+                  <FormLabel>Data de fundação</FormLabel>
                   <Popover modal={true}>
                     <PopoverTrigger asChild>
                       <FormControl>

@@ -12,21 +12,21 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Separator } from "@radix-ui/react-separator";
-import { columns } from "./columns";
-import { Tournament } from "@/app/types/tournament";
-import { AppTable } from "@/components/app-table";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import CreateTournamentForm from "@/components/create-tournament-form";
+import { ResponseBody } from "@/app/types/response-body";
+import { TournamentCharacteristics } from "@/app/types/tournament";
 
-async function TournamentPage() {
-  const data = await fetch("http://localhost:4000/tournament", {
-    method: "GET",
-    next: {
-      tags: ["get-tournaments"],
-    },
-  });
+async function CreateTournamentPage() {
 
-  const response: Tournament[] = await data.json();
+  const characteristicsData = await fetch(
+    "http://localhost:4000/tournament/characteristics",
+    {
+      method: "GET",
+    }
+  );
+
+  const characteristicsResponse: ResponseBody<TournamentCharacteristics> =
+    await characteristicsData.json();
 
   return (
     <SidebarProvider>
@@ -54,15 +54,15 @@ async function TournamentPage() {
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 pt-10 md:pl-20">
-          <h1 className="text-3xl font-bold">Torneios</h1>
-          <Link href="/dashboard/tournaments/create">
-            <Button className="cursor-pointer">Criar Torneio</Button>
-          </Link>
-          <AppTable columns={columns} data={response} />
+          <h1 className="text-3xl font-bold">Criar Novo Torneio</h1>
+
+          <CreateTournamentForm
+            characteristicsResponse={characteristicsResponse.payload}
+          />
         </div>
       </SidebarInset>
     </SidebarProvider>
   );
 }
 
-export default TournamentPage;
+export default CreateTournamentPage;

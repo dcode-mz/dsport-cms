@@ -41,7 +41,6 @@ const createTournamentFormSchema = z.object({
   gender: z.string(),
   type: z.string(),
   level: z.string(),
-  format: z.string(),
   category: z.string(),
   tiebreakerCriteria: z.string(),
   sport: z.string(),
@@ -69,7 +68,6 @@ export default function CreateTournamentDialog({
       gender: "",
       type: "",
       level: "",
-      format: "",
       category: "",
       tiebreakerCriteria: "",
       sport: "",
@@ -79,7 +77,7 @@ export default function CreateTournamentDialog({
   function onSubmit(values: z.infer<typeof createTournamentFormSchema>) {
     startTransition(async () => {
       console.log(values);
-      await createTournament(values);
+      // await createTournament(values);
       toast.success("Torneio criado com sucesso!");
       setOpen(false);
       form.reset();
@@ -140,47 +138,197 @@ export default function CreateTournamentDialog({
                 </FormItem>
               )}
             />
-            {Object.entries({
-              country: characteristicsResponse.countries,
-              gender: characteristicsResponse.genders,
-              type: characteristicsResponse.types,
-              level: characteristicsResponse.levels,
-              format: characteristicsResponse.formats,
-              category: characteristicsResponse.categories,
-              tiebreakerCriteria: characteristicsResponse.tiebreakerCriteria,
-              sport: characteristicsResponse.sports,
-            }).map(([key, options]) => (
-              <FormField
-                key={key}
-                control={form.control}
-                name={key as keyof z.infer<typeof createTournamentFormSchema>}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {key.charAt(0).toUpperCase() + key.slice(1)}
-                    </FormLabel>
-                    <FormControl>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={typeof field.value === "string" ? field.value : undefined}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={`Selecione um(a) ${key}`} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {options.map((option) => (
-                            <SelectItem key={option.id} value={option.id}>
-                              {option.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            ))}
+            <FormField
+              control={form.control}
+              name="country"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>País</FormLabel>
+                  <FormControl>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={
+                        typeof field.value === "string"
+                          ? field.value
+                          : undefined
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um país" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {characteristicsResponse.countries.map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="gender"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Gênero</FormLabel>
+                  <FormControl>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={
+                        typeof field.value === "string"
+                          ? field.value
+                          : undefined
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um gênero" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {characteristicsResponse.genders.map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tipo</FormLabel>
+                  <FormControl>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={
+                        typeof field.value === "string"
+                          ? field.value
+                          : undefined
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {characteristicsResponse.types.map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="level"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nível</FormLabel>
+                  <FormControl>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={
+                        typeof field.value === "string"
+                          ? field.value
+                          : undefined
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um nível" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {characteristicsResponse.levels.map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Categoria</FormLabel>
+                  <FormControl>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={
+                        typeof field.value === "string"
+                          ? field.value
+                          : undefined
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione uma categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {characteristicsResponse.categories.map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="sport"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Esporte</FormLabel>
+                  <FormControl>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={
+                        typeof field.value === "string"
+                          ? field.value
+                          : undefined
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um esporte" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {characteristicsResponse.sports.map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="description"

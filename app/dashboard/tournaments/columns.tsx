@@ -14,6 +14,7 @@ import {
 import { Tournament } from "@/app/types/tournament";
 import Image from "next/image";
 import { AlertDialogTournament } from "@/components/alert-dialog-tournament";
+import Link from "next/link";
 
 const TournamentActions = ({ tournament }: { tournament: Tournament }) => {
   const [open, setOpen] = useState(false);
@@ -29,6 +30,14 @@ const TournamentActions = ({ tournament }: { tournament: Tournament }) => {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>Ações</DropdownMenuLabel>
+          <DropdownMenuItem>
+            <Link
+              href={`/dashboard/tournaments/${tournament.id}`}
+              className="w-full flex flex-row items-center justify-between gap-1"
+            >
+              Ver
+            </Link>
+          </DropdownMenuItem>
           <DropdownMenuItem>Editar</DropdownMenuItem>
           <DropdownMenuItem
             className="text-red-500"
@@ -150,18 +159,6 @@ export const columns: ColumnDef<Tournament>[] = [
     ),
   },
   {
-    accessorKey: "format.name",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-      >
-        Formato
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
-    ),
-  },
-  {
     accessorKey: "category.name",
     header: ({ column }) => (
       <Button
@@ -169,18 +166,6 @@ export const columns: ColumnDef<Tournament>[] = [
         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
       >
         Categoria
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
-    ),
-  },
-  {
-    accessorKey: "tiebreakerCriteria.name",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-      >
-        Critério de Desempate
         <ArrowUpDown className="ml-2 h-4 w-4" />
       </Button>
     ),
@@ -212,7 +197,7 @@ export const columns: ColumnDef<Tournament>[] = [
       row.original.stages.map((stage) => stage.name).join(", "),
   },
   {
-    accessorKey: "_count.teams",
+    accessorKey: "seasons[0]._count.teams",
     header: ({ column }) => (
       <Button
         variant="ghost"
@@ -222,7 +207,7 @@ export const columns: ColumnDef<Tournament>[] = [
         <ArrowUpDown className="ml-2 h-4 w-4" />
       </Button>
     ),
-    cell: ({ row }) => row.original._count.teams,
+    cell: ({ row }) => row.original?.seasons?.[0]?._count?.teams ?? 0,
   },
   {
     id: "actions",
