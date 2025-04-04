@@ -12,21 +12,23 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Separator } from "@radix-ui/react-separator";
-import CreateTournamentForm from "@/components/create-tour`nament-form";
-import { ResponseBody } from "@/app/types/response-body";
-import { TournamentCharacteristics } from "@/app/types/tournament";
+import { MatchLive } from "@/components/live-match";
 
-async function CreateTournamentPage() {
+async function MatchPage({ params }: { params: { id: string } }) {
+  const { id } = await params;
 
-  const characteristicsData = await fetch(
-    "http://localhost:4000/tournament/characteristics",
-    {
-      method: "GET",
-    }
+  const data = await fetch(`http://localhost:4000/match/${id}`, {
+    method: "GET",
+    next: {
+      tags: ["get-match"],
+    },
+  });
+
+  const responseMatchTypes = await fetch(
+    `http://localhost:4000/match-events/types`
   );
-
-  const characteristicsResponse: ResponseBody<TournamentCharacteristics> =
-    await characteristicsData.json();
+  const response = await data.json();
+  const matchTypes = await responseMatchTypes.json();
 
   return (
     <SidebarProvider>
@@ -54,15 +56,14 @@ async function CreateTournamentPage() {
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 pt-10 md:pl-20">
-          <h1 className="text-3xl font-bold">Criar Novo Torneio</h1>
-
-          <CreateTournamentForm
-            characteristicsResponse={characteristicsResponse.payload}
-          />
+          <h1 className="text-3xl font-bold">Jogo</h1>
+          <div>
+            <MatchLive match={response} eventTypes={matchTypes} />
+          </div>
         </div>
       </SidebarInset>
     </SidebarProvider>
   );
 }
 
-export default CreateTournamentPage;
+export default MatchPage;

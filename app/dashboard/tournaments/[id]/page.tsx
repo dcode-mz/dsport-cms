@@ -13,6 +13,41 @@ export default async function TournamentPage({
 }: {
   params: { id: string };
 }) {
+  const handleStageCreated = () => {
+    console.log("Stage created");
+  };
+
+  const handleStageUpdated = () => {
+    console.log("Stage updated");
+  };
+
+  const handleStageDeleted = () => {
+    console.log("Stage deleted");
+  };
+
+  const handleMatchdayCreated = () => {
+    console.log("Matchday created");
+  };
+
+  const handleMatchdayUpdated = () => {
+    console.log("Matchday updated");
+  };
+
+  const handleMatchdayDeleted = () => {
+    console.log("Matchday deleted");
+  };
+
+  const handleMatchCreated = () => {
+    console.log("Match created");
+  };
+
+  const handleMatchUpdated = () => {
+    console.log("Match updated");
+  };
+
+  const handleMatchDeleted = () => {
+    console.log("Match deleted");
+  };
   const { id } = await params;
   const response = await fetch(`http://localhost:4000/tournament/${id}`);
   const tournament: ResponseBody<Tournament> = await response.json();
@@ -61,6 +96,15 @@ export default async function TournamentPage({
           <MatchesTab
             tournament={tournament.payload}
             availableTournamentTeams={availableTournamentTeams.payload}
+            // onStageCreated={handleStageCreated}
+            // onStageUpdated={handleStageUpdated}
+            // onStageDeleted={handleStageDeleted}
+            // onMatchdayCreated={handleMatchdayCreated}
+            // onMatchdayUpdated={handleMatchdayUpdated}
+            // onMatchdayDeleted={handleMatchdayDeleted}
+            // onMatchCreated={handleMatchCreated}
+            // onMatchUpdated={handleMatchUpdated}
+            // onMatchDeleted={handleMatchDeleted}
           />
         </TabsContent>
         <TabsContent value="standings">

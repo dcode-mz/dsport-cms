@@ -11,6 +11,7 @@ import { createTournament } from "@/app/actions/tournaments";
 import { toast } from "sonner";
 import TournamentCupFormTab from "./tournament-cup-form-tab";
 import TournamentLeagueFormTab from "./tournament-league-form-tab";
+import { useRouter } from "next/navigation";
 
 const ruleSchema = z.object({
   id: z.string().uuid(),
@@ -44,6 +45,8 @@ export default function CreateTournamentForm({
 }) {
   const [step, setStep] = useState(1);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+  
 
   const form = useForm<z.infer<typeof createTournamentFormSchema>>({
     resolver: zodResolver(createTournamentFormSchema),
@@ -96,9 +99,9 @@ export default function CreateTournamentForm({
 
   function onSubmit(values: z.infer<typeof createTournamentFormSchema>) {
     startTransition(async () => {
-      console.log("resposta", values);
       await createTournament(values);
       toast.success("Torneio criado com sucesso!");
+      router.push("/dashboard/tournaments");
       form.reset();
     });
   }
