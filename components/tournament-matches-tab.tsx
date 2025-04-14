@@ -163,8 +163,6 @@ MatchesTabProps) {
     tournamentSeasonId: currentSeason.id,
   });
 
-  console.log(currentSeason);
-
   const [matchdayForm, setMatchdayForm] = useState({
     stageId: "",
     number: 1,
@@ -190,7 +188,6 @@ MatchesTabProps) {
   // Stage management
   // ======================
   const openStageDialog = (stage: Stage | null) => {
-    console.log("openStageDialog", stage);
     setCurrentStage(stage);
     if (stage) {
       setStageForm({
@@ -335,29 +332,29 @@ MatchesTabProps) {
     }
   };
 
-  const deleteMatchday = async (stageOrder: string, matchdayId: string) => {
-    try {
-      setIsLoading((prev) => ({ ...prev, deleting: true }));
+  // const deleteMatchday = async (stageOrder: string, matchdayId: string) => {
+  //   try {
+  //     setIsLoading((prev) => ({ ...prev, deleting: true }));
 
-      await toast.promise(
-        fetch(`/api/tournaments/${tournament.id}/matchdays/${matchdayId}`, {
-          method: "DELETE",
-        }),
-        {
-          loading: "Eliminando jornada...",
-          success: () => {
-            onMatchdayDeleted(stageOrder, matchdayId);
-            return "Jornada eliminada com sucesso";
-          },
-          error: "Erro ao eliminar jornada",
-        }
-      );
-    } catch (error) {
-      console.error("Error deleting matchday:", error);
-    } finally {
-      setIsLoading((prev) => ({ ...prev, deleting: false }));
-    }
-  };
+  //     await toast.promise(
+  //       fetch(`/api/tournaments/${tournament.id}/matchdays/${matchdayId}`, {
+  //         method: "DELETE",
+  //       }),
+  //       {
+  //         loading: "Eliminando jornada...",
+  //         success: () => {
+  //           onMatchdayDeleted(stageOrder, matchdayId);
+  //           return "Jornada eliminada com sucesso";
+  //         },
+  //         error: "Erro ao eliminar jornada",
+  //       }
+  //     );
+  //   } catch (error) {
+  //     console.error("Error deleting matchday:", error);
+  //   } finally {
+  //     setIsLoading((prev) => ({ ...prev, deleting: false }));
+  //   }
+  // };
 
   // ======================
   // Match management
@@ -370,7 +367,7 @@ MatchesTabProps) {
     setCurrentMatch(match);
     if (match) {
       const date = new Date(match.dateTime);
-      console.log(match);
+
       setMatchForm({
         stageId: stageId,
         matchdayId: matchdayId || "",
@@ -402,7 +399,7 @@ MatchesTabProps) {
       const url = isUpdate
         ? `http://localhost:4000/match/${currentMatch.id}`
         : `http://localhost:4000/match`;
-      console.log(matchForm);
+
       await toast.promise(
         fetch(url, {
           method,
@@ -634,7 +631,7 @@ MatchesTabProps) {
                           variant="ghost"
                           size="sm"
                           onClick={() =>
-                            openMatchDialog(match, stage.order, matchday.id)
+                            openMatchDialog(match, stage.id, matchday.id)
                           }
                         >
                           <Pencil className="h-4 w-4" />
@@ -789,7 +786,7 @@ MatchesTabProps) {
                               variant="outline"
                               size="sm"
                               onClick={() => {
-                                openMatchDialog(null, stage.order);
+                                openMatchDialog(null, stage.id);
                               }}
                             >
                               <PlusCircle className="mr-2 h-4 w-4" />
@@ -809,7 +806,7 @@ MatchesTabProps) {
                                     key={match.id}
                                     match={match}
                                     onEdit={() =>
-                                      openMatchDialog(match, stage.order)
+                                      openMatchDialog(match, stage.id)
                                     }
                                     isDeleting={isLoading.deleting}
                                   />
@@ -861,10 +858,7 @@ MatchesTabProps) {
                                       size="sm"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        openMatchdayDialog(
-                                          stage,
-                                          matchday
-                                        );
+                                        openMatchdayDialog(stage, matchday);
                                       }}
                                     >
                                       <Pencil className="h-4 w-4" />
@@ -1245,7 +1239,7 @@ MatchesTabProps) {
             </div>
 
             {matchForm.stageId &&
-              currentSeason.stages.find((s) => s.order === matchForm.stageId)
+              currentSeason.stages.find((s) => s.id === matchForm.stageId)
                 ?.hasMatchdays && (
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="matchMatchday" className="text-right">
@@ -1264,7 +1258,7 @@ MatchesTabProps) {
                     <SelectContent>
                       <SelectGroup>
                         {currentSeason.stages
-                          .find((s) => s.order === matchForm.stageId)!
+                          .find((s) => s.id === matchForm.stageId)!
                           .matchdays?.map((matchday) => (
                             <SelectItem key={matchday.id} value={matchday.id}>
                               Jornada {matchday.number}
