@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidateTag } from "next/cache";
 
 const createTeamFormSchema = z.object({
-  name: z.string().min(3, "O nome deve ter pelo menos 3 caracteres"),
+  customName: z.string().optional(),
   club: z.string().optional().nullable(),
   gender: z.string(),
   teamType: z.string(),
@@ -22,7 +22,7 @@ export async function createTeam(data: z.infer<typeof createTeamFormSchema>) {
     await fetch("http://localhost:4000/team/", {
       method: "POST",
       body: JSON.stringify({
-        name: data.name,
+        customName: data.customName,
         genderId: data.gender,
         teamTypeId: data.teamType,
         venueId: data.venue,

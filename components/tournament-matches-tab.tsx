@@ -47,11 +47,17 @@ import { Stage } from "@/app/types/stage";
 import { Tournament } from "@/app/types/tournament";
 import { Matchday } from "@/app/types/matchday";
 import { Match } from "@/app/types/match";
+import Image from "next/image";
+import { AlertDialogStage } from "./alert-dialog-stage";
+import { useRouter } from "next/navigation";
+import { AlertDialogMatchday } from "./alert-dialog-matchday";
+import { DateTimePicker24h } from "./date-time-picker";
+import { AlertDialogMatch } from "./alert-dialog-match";
 
 type Team = {
   id: string;
+  name: string;
   club: {
-    name: string;
     logo: string;
   };
 };
@@ -59,6 +65,20 @@ type Team = {
 interface MatchesTabProps {
   tournament: Tournament;
   availableTournamentTeams: Team[];
+  stageTypes: {
+    id: string;
+    name: string;
+  }[];
+  referees: {
+    id: string;
+    name: string;
+  }[];
+  venues: {
+    id: string;
+    name: string;
+    location: string;
+    capacity?: number;
+  }[];
   // onStageCreated: (newStage: Stage) => void;
   // onStageUpdated: (updatedStage: Stage) => void;
   // onStageDeleted: (stageOrder: string) => void;
@@ -73,6 +93,9 @@ interface MatchesTabProps {
 export function MatchesTab({
   tournament,
   availableTournamentTeams,
+  stageTypes,
+  referees,
+  venues,
 }: // onStageCreated,
 // onStageUpdated,
 // onStageDeleted,
@@ -83,6 +106,11 @@ export function MatchesTab({
 // onMatchUpdated,
 // onMatchDeleted,
 MatchesTabProps) {
+  const router = useRouter();
+  const [stageToDelete, setStageToDelete] = useState<Stage | null>(null);
+  const [matchdayToDelete, setMatchdayToDelete] = useState<Matchday | null>(
+    null
+  );
   const [viewMode, setViewMode] = useState<"list" | "stages">("stages");
   const [isLoading, setIsLoading] = useState({
     generating: false,
@@ -104,7 +132,7 @@ MatchesTabProps) {
   // Current edited entities
   const [currentStage, setCurrentStage] = useState<Stage | null>(null);
   const [currentMatchday, setCurrentMatchday] = useState<{
-    stageOrder: string;
+    stage: Stage;
     matchday: Matchday;
   } | null>(null);
   const [currentMatch, setCurrentMatch] = useState<Match | null>(null);
@@ -114,23 +142,28 @@ MatchesTabProps) {
     matchdayId: "",
     homeTeamId: "",
     awayTeamId: "",
-    date: "",
-    time: "",
-    venueName: "",
-    venueLocation: "",
-    refereeName: "",
+    dateTime: "",
+    venueId: "",
+    refereeId: "",
   });
+
+  const currentSeason = tournament.seasons.filter(
+    (s) => s.isCurrent === true
+  )[0];
 
   const [stageForm, setStageForm] = useState({
     name: "",
-    order: tournament.stages.length + 1,
-    type: "LEAGUE",
+    order: currentSeason.stages.length + 1,
+    typeId: stageTypes.filter((t) => t.name === "Liga")[0].id,
     hasMatchdays: true,
     twoLegged: false,
     extraTimeAllowed: false,
     penaltyShootout: false,
     teamsToAdvance: 0,
+    tournamentSeasonId: currentSeason.id,
   });
+
+  console.log(currentSeason);
 
   const [matchdayForm, setMatchdayForm] = useState({
     stageId: "",
@@ -142,7 +175,7 @@ MatchesTabProps) {
     const initialExpandedStages: Record<string, boolean> = {};
     const initialExpandedMatchdays: Record<string, boolean> = {};
 
-    tournament.stages.forEach((stage: Stage) => {
+    currentSeason.stages.forEach((stage: Stage) => {
       initialExpandedStages[stage.order] = true;
       stage.matchdays?.forEach((matchday) => {
         initialExpandedMatchdays[matchday.id] = true;
@@ -157,28 +190,31 @@ MatchesTabProps) {
   // Stage management
   // ======================
   const openStageDialog = (stage: Stage | null) => {
+    console.log("openStageDialog", stage);
     setCurrentStage(stage);
     if (stage) {
       setStageForm({
         name: stage.name,
         order: parseInt(stage.order),
-        type: stage.type.name as "LEAGUE" | "CUP" | "GROUPS",
+        typeId: stage.type.id,
         hasMatchdays: stage.hasMatchdays,
         twoLegged: stage.twoLegged,
         extraTimeAllowed: stage.extraTimeAllowed,
         penaltyShootout: stage.penaltyShootout,
         teamsToAdvance: stage.teamsToAdvance,
+        tournamentSeasonId: currentSeason.id,
       });
     } else {
       setStageForm({
         name: "",
-        order: tournament.stages.length + 1,
-        type: "LEAGUE",
+        order: currentSeason.stages.length + 1,
+        typeId: stageTypes.filter((t) => t.name === "Liga")[0].id,
         hasMatchdays: true,
         twoLegged: false,
         extraTimeAllowed: false,
         penaltyShootout: false,
         teamsToAdvance: 0,
+        tournamentSeasonId: currentSeason.id,
       });
     }
     setIsStageDialogOpen(true);
@@ -189,10 +225,10 @@ MatchesTabProps) {
       const isUpdate = !!currentStage;
       const method = isUpdate ? "PUT" : "POST";
       const url = isUpdate
-        ? `/api/tournaments/${tournament.id}/stages/${currentStage?.order}`
-        : `/api/tournaments/${tournament.id}/stages`;
+        ? `http://localhost:4000/stage/${currentStage.id}`
+        : `http://localhost:4000/stage`;
 
-      const response = await toast.promise(
+      await toast.promise(
         fetch(url, {
           method,
           headers: { "Content-Type": "application/json" },
@@ -207,61 +243,49 @@ MatchesTabProps) {
         }
       );
 
-      const data = await response.json();
-
-      if (isUpdate) {
-        onStageUpdated(data.stage);
-      } else {
-        onStageCreated(data.stage);
-      }
-
       setIsStageDialogOpen(false);
+      router.refresh();
     } catch (error) {
       console.error("Error saving stage:", error);
     }
   };
 
-  const deleteStage = async (stageOrder: string) => {
-    try {
-      setIsLoading((prev) => ({ ...prev, deleting: true }));
-
-      await toast.promise(
-        fetch(`/api/tournaments/${tournament.id}/stages/${stageOrder}`, {
-          method: "DELETE",
-        }),
-        {
-          loading: "Eliminando fase...",
-          success: () => {
-            onStageDeleted(stageOrder);
-            return "Fase eliminada com sucesso";
-          },
-          error: "Erro ao eliminar fase",
-        }
-      );
-    } catch (error) {
-      console.error("Error deleting stage:", error);
-    } finally {
-      setIsLoading((prev) => ({ ...prev, deleting: false }));
-    }
-  };
+  // const deleteStage = async (stage: Stage) => {
+  // try {
+  //   setIsLoading((prev) => ({ ...prev, deleting: true }));
+  //   await toast.promise(
+  //     fetch(`http://localhost:4000/stages/`, {
+  //       method: "DELETE",
+  //     }),
+  //     {
+  //       loading: "Eliminando fase...",
+  //       success: () => {
+  //         onStageDeleted(stageOrder);
+  //         return "Fase eliminada com sucesso";
+  //       },
+  //       error: "Erro ao eliminar fase",
+  //     }
+  //   );
+  // } catch (error) {
+  //   console.error("Error deleting stage:", error);
+  // } finally {
+  //   setIsLoading((prev) => ({ ...prev, deleting: false }));
+  // }
+  // };
 
   // ======================
   // Matchday management
   // ======================
-  const openMatchdayDialog = (
-    stageOrder: string,
-    matchday: Matchday | null
-  ) => {
-    setCurrentMatchday(matchday ? { stageOrder, matchday } : null);
+  const openMatchdayDialog = (stage: Stage, matchday: Matchday | null) => {
+    setCurrentMatchday(matchday ? { stage, matchday } : null);
     if (matchday) {
       setMatchdayForm({
-        stageId: stageOrder,
+        stageId: stage.id,
         number: matchday.number,
       });
     } else {
-      const stage = tournament.stages.find((s) => s.order === stageOrder)!;
       setMatchdayForm({
-        stageId: stageOrder,
+        stageId: stage.id,
         number: (stage.matchdays?.length || 0) + 1,
       });
     }
@@ -274,9 +298,9 @@ MatchesTabProps) {
       const method = isUpdate ? "PUT" : "POST";
       const url = isUpdate
         ? `/api/tournaments/${tournament.id}/matchdays/${currentMatchday?.matchday.id}`
-        : `/api/tournaments/${tournament.id}/matchdays`;
+        : `http://localhost:4000/matchday`;
 
-      const response = await toast.promise(
+      await toast.promise(
         fetch(url, {
           method,
           headers: { "Content-Type": "application/json" },
@@ -296,15 +320,16 @@ MatchesTabProps) {
         }
       );
 
-      const data = await response.json();
+      // const data = await response.json();
 
-      if (isUpdate) {
-        onMatchdayUpdated(matchdayForm.stageId, data.matchday);
-      } else {
-        onMatchdayCreated(matchdayForm.stageId, data.matchday);
-      }
+      // if (isUpdate) {
+      //   onMatchdayUpdated(matchdayForm.stageId, data.matchday);
+      // } else {
+      //   onMatchdayCreated(matchdayForm.stageId, data.matchday);
+      // }
 
       setIsMatchdayDialogOpen(false);
+      router.refresh();
     } catch (error) {
       console.error("Error saving matchday:", error);
     }
@@ -339,34 +364,31 @@ MatchesTabProps) {
   // ======================
   const openMatchDialog = (
     match: Match | null,
-    stageOrder: string,
+    stageId: string,
     matchdayId?: string
   ) => {
     setCurrentMatch(match);
     if (match) {
       const date = new Date(match.dateTime);
+      console.log(match);
       setMatchForm({
-        stageId: stageOrder,
+        stageId: stageId,
         matchdayId: matchdayId || "",
         homeTeamId: match.homeTeam.id,
         awayTeamId: match.awayTeam.id,
-        date: date.toISOString().split("T")[0],
-        time: date.toTimeString().substring(0, 5),
-        venueName: match.venue?.name || "",
-        venueLocation: match.venue?.location || "",
-        refereeName: match.referee?.name || "",
+        dateTime: date.toISOString(),
+        venueId: match.venue?.id || "",
+        refereeId: match.referee?.id || "",
       });
     } else {
       setMatchForm({
-        stageId: stageOrder,
+        stageId: stageId,
         matchdayId: matchdayId || "",
         homeTeamId: "",
         awayTeamId: "",
-        date: "",
-        time: "",
-        venueName: "",
-        venueLocation: "",
-        refereeName: "",
+        dateTime: "",
+        venueId: "",
+        refereeId: "",
       });
     }
     setIsMatchDialogOpen(true);
@@ -378,10 +400,10 @@ MatchesTabProps) {
       const isUpdate = !!currentMatch;
       const method = isUpdate ? "PUT" : "POST";
       const url = isUpdate
-        ? `/api/tournaments/${tournament.id}/matches/${currentMatch?.id}`
-        : `/api/tournaments/${tournament.id}/matches`;
-
-      const response = await toast.promise(
+        ? `http://localhost:4000/match/${currentMatch.id}`
+        : `http://localhost:4000/match`;
+      console.log(matchForm);
+      await toast.promise(
         fetch(url, {
           method,
           headers: { "Content-Type": "application/json" },
@@ -390,14 +412,13 @@ MatchesTabProps) {
             matchdayId: matchForm.matchdayId || null,
             homeTeamId: matchForm.homeTeamId,
             awayTeamId: matchForm.awayTeamId,
-            dateTime: `${matchForm.date}T${matchForm.time}:00.000Z`,
-            venue: {
-              name: matchForm.venueName,
-              location: matchForm.venueLocation,
-            },
-            referee: {
-              name: matchForm.refereeName,
-            },
+            dateTime: matchForm.dateTime,
+            venueId: matchForm.venueId !== "" ? matchForm.venueId : null,
+            refereeId: matchForm.refereeId !== "" ? matchForm.refereeId : null,
+            seasonId: currentSeason.id,
+            numberPeriods: 2,
+            durationPerPeriod: 45,
+            halfTimeDuration: 15,
           }),
         }),
         {
@@ -409,16 +430,17 @@ MatchesTabProps) {
         }
       );
 
-      const data = await response.json();
+      // const data = await response.json();
 
-      if (isUpdate) {
-        onMatchUpdated(data.match);
-      } else {
-        onMatchCreated(data.match);
-      }
+      // if (isUpdate) {
+      //   onMatchUpdated(data.match);
+      // } else {
+      //   onMatchCreated(data.match);
+      // }
 
       setIsMatchDialogOpen(false);
       resetMatchForm();
+      router.refresh();
     } catch (error) {
       console.error("Error saving match:", error);
     } finally {
@@ -459,11 +481,9 @@ MatchesTabProps) {
       matchdayId: "",
       homeTeamId: "",
       awayTeamId: "",
-      date: "",
-      time: "",
-      venueName: "",
-      venueLocation: "",
-      refereeName: "",
+      dateTime: "",
+      venueId: "",
+      refereeId: "",
     });
     setCurrentMatch(null);
   };
@@ -492,26 +512,29 @@ MatchesTabProps) {
   };
 
   const generateMatchesForStage = async (stageOrder: string) => {
-    setIsLoading(prev => ({ ...prev, generating: true }));
+    setIsLoading((prev) => ({ ...prev, generating: true }));
     try {
       // POST /api/tournaments/{tournamentId}/stages/{stageOrder}/generate-matches
       const response = await toast.promise(
-        fetch(`/api/tournaments/${tournament.id}/stages/${stageOrder}/generate-matches`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        }),
+        fetch(
+          `/api/tournaments/${tournament.id}/stages/${stageOrder}/generate-matches`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          }
+        ),
         {
-          loading: 'Gerando jogos...',
-          success: 'Jogos gerados com sucesso',
-          error: 'Erro ao gerar jogos'
+          loading: "Gerando jogos...",
+          success: "Jogos gerados com sucesso",
+          error: "Erro ao gerar jogos",
         }
       );
 
-      if (!response.ok) throw new Error('Failed to generate matches');
+      if (!response.ok) throw new Error("Failed to generate matches");
     } catch (error) {
       console.error("Error generating matches:", error);
     } finally {
-      setIsLoading(prev => ({ ...prev, generating: false }));
+      setIsLoading((prev) => ({ ...prev, generating: false }));
     }
   };
 
@@ -567,7 +590,7 @@ MatchesTabProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {tournament.stages.flatMap((stage) =>
+            {currentSeason.stages.flatMap((stage) =>
               stage.matchdays?.flatMap((matchday) =>
                 matchday.matches.map((match) => (
                   <TableRow key={match.id}>
@@ -575,22 +598,26 @@ MatchesTabProps) {
                     <TableCell>{matchday.number}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <img
+                        <Image
+                          width={24}
+                          height={24}
                           src={match.homeTeam.club.logo}
-                          alt={match.homeTeam.club.name}
+                          alt={match.homeTeam.name}
                           className="h-6 w-6"
                         />
-                        {match.homeTeam.club.name}
+                        {match.homeTeam.name}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <img
+                        <Image
+                          width={24}
+                          height={24}
                           src={match.awayTeam.club.logo}
-                          alt={match.awayTeam.club.name}
+                          alt={match.awayTeam.name}
                           className="h-6 w-6"
                         />
-                        {match.awayTeam.club.name}
+                        {match.awayTeam.name}
                       </div>
                     </TableCell>
                     <TableCell>{formatDateTime(match.dateTime)}</TableCell>
@@ -627,7 +654,7 @@ MatchesTabProps) {
               )
             )}
           </TableBody>
-          {tournament.stages
+          {currentSeason.stages
             .flatMap((s) => s.matchdays || [])
             .flatMap((m) => m.matches).length === 0 && (
             <TableCaption className="py-8">
@@ -645,7 +672,7 @@ MatchesTabProps) {
         </Table>
       ) : (
         <div className="space-y-4">
-          {tournament.stages.length === 0 ? (
+          {currentSeason.stages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed rounded-lg">
               <Trophy className="h-10 w-10 text-muted-foreground mb-4" />
               <p className="text-lg font-medium text-muted-foreground mb-2">
@@ -660,7 +687,7 @@ MatchesTabProps) {
               </Button>
             </div>
           ) : (
-            [...tournament.stages]
+            [...currentSeason.stages]
               .sort((a, b) => parseInt(a.order) - parseInt(b.order))
               .map((stage) => (
                 <div
@@ -684,8 +711,9 @@ MatchesTabProps) {
                     <div className="flex items-center space-x-2">
                       <div className="flex gap-2">
                         <Button
-                          variant="ghost"
+                          variant="secondary"
                           size="sm"
+                          className="cursor-pointer"
                           onClick={(e) => {
                             e.stopPropagation();
                             openStageDialog(stage);
@@ -694,16 +722,27 @@ MatchesTabProps) {
                           <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
-                          variant="ghost"
+                          variant="secondary"
                           size="sm"
+                          className="cursor-pointer"
                           onClick={(e) => {
                             e.stopPropagation();
-                            deleteStage(stage.order);
+                            setStageToDelete(stage);
+                            // deleteStage(stage);
                           }}
                           disabled={isLoading.deleting}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
+                        {stageToDelete && (
+                          <AlertDialogStage
+                            open={!!stageToDelete}
+                            onOpenChange={(open) => {
+                              if (!open) setStageToDelete(null);
+                            }}
+                            stage={stageToDelete}
+                          />
+                        )}
                       </div>
                       {stage.hasMatchdays && (
                         <Button
@@ -711,7 +750,7 @@ MatchesTabProps) {
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            openMatchdayDialog(stage.order, null);
+                            openMatchdayDialog(stage, null);
                           }}
                         >
                           <PlusCircle className="mr-2 h-4 w-4" />
@@ -757,8 +796,8 @@ MatchesTabProps) {
                               Adicionar Jogo
                             </Button>
                           </div>
-                          {stage.matchdays?.flatMap((m) => m.matches).length ===
-                          0 ? (
+                          {stage.matchdays?.flatMap((m) => m.matches[0])
+                            .length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground border rounded-lg">
                               <p className="mb-2">Nenhum jogo nesta fase</p>
                             </div>
@@ -772,7 +811,6 @@ MatchesTabProps) {
                                     onEdit={() =>
                                       openMatchDialog(match, stage.order)
                                     }
-                                    onDelete={() => deleteMatch(match.id)}
                                     isDeleting={isLoading.deleting}
                                   />
                                 ))
@@ -787,7 +825,7 @@ MatchesTabProps) {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              openMatchdayDialog(stage.order, null);
+                              openMatchdayDialog(stage, null);
                             }}
                           >
                             <PlusCircle className="mr-2 h-4 w-4" />
@@ -824,7 +862,7 @@ MatchesTabProps) {
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         openMatchdayDialog(
-                                          stage.order,
+                                          stage,
                                           matchday
                                         );
                                       }}
@@ -836,15 +874,25 @@ MatchesTabProps) {
                                       size="sm"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        deleteMatchday(
-                                          stage.order,
-                                          matchday.id
-                                        );
+                                        // deleteMatchday(
+                                        //   stage.order,
+                                        //   matchday.id
+                                        // );
+                                        setMatchdayToDelete(matchday);
                                       }}
                                       disabled={isLoading.deleting}
                                     >
                                       <Trash2 className="h-4 w-4 text-destructive" />
                                     </Button>
+                                    {matchdayToDelete && (
+                                      <AlertDialogMatchday
+                                        open={!!matchdayToDelete}
+                                        onOpenChange={(open) => {
+                                          if (!open) setMatchdayToDelete(null);
+                                        }}
+                                        matchday={matchdayToDelete}
+                                      />
+                                    )}
                                   </div>
                                   <Button
                                     variant="ghost"
@@ -853,7 +901,7 @@ MatchesTabProps) {
                                       e.stopPropagation();
                                       openMatchDialog(
                                         null,
-                                        stage.order,
+                                        stage.id,
                                         matchday.id
                                       );
                                     }}
@@ -877,7 +925,7 @@ MatchesTabProps) {
                                         onClick={() => {
                                           openMatchDialog(
                                             null,
-                                            stage.order,
+                                            stage.id,
                                             matchday.id
                                           );
                                         }}
@@ -895,11 +943,10 @@ MatchesTabProps) {
                                           onEdit={() =>
                                             openMatchDialog(
                                               match,
-                                              stage.order,
+                                              stage.id,
                                               matchday.id
                                             )
                                           }
-                                          onDelete={() => deleteMatch(match.id)}
                                           isDeleting={isLoading.deleting}
                                         />
                                       ))}
@@ -946,7 +993,6 @@ MatchesTabProps) {
                 className="col-span-3"
               />
             </div>
-
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="order" className="text-right">
                 Ordem
@@ -965,17 +1011,16 @@ MatchesTabProps) {
                 min="1"
               />
             </div>
-
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="type" className="text-right">
                 Tipo
               </Label>
               <Select
-                value={stageForm.type}
+                value={stageForm.typeId}
                 onValueChange={(value) =>
                   setStageForm({
                     ...stageForm,
-                    type: value as "LEAGUE" | "CUP" | "GROUPS",
+                    typeId: value,
                   })
                 }
               >
@@ -983,13 +1028,14 @@ MatchesTabProps) {
                   <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="LEAGUE">Liga (Round Robin)</SelectItem>
-                  <SelectItem value="CUP">Taça (Eliminatórias)</SelectItem>
-                  <SelectItem value="GROUPS">Fase de Grupos</SelectItem>
+                  {stageTypes.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      {option.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="hasMatchdays" className="text-right">
                 Tem Jornadas?
@@ -1009,7 +1055,6 @@ MatchesTabProps) {
                 </SelectContent>
               </Select>
             </div>
-
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="twoLegged" className="text-right">
                 Jogos Ida/Volta
@@ -1022,6 +1067,50 @@ MatchesTabProps) {
               >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Jogos ida/volta?" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">Sim</SelectItem>
+                  <SelectItem value="false">Não</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="extraTimeAllowed" className="text-right">
+                Prolongamento
+              </Label>
+              <Select
+                value={stageForm.extraTimeAllowed ? "true" : "false"}
+                onValueChange={(value) =>
+                  setStageForm({
+                    ...stageForm,
+                    extraTimeAllowed: value === "true",
+                  })
+                }
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Prolongamento?" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">Sim</SelectItem>
+                  <SelectItem value="false">Não</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="penaltyShootout" className="text-right">
+                Disputa de pênaltis
+              </Label>
+              <Select
+                value={stageForm.penaltyShootout ? "true" : "false"}
+                onValueChange={(value) =>
+                  setStageForm({
+                    ...stageForm,
+                    penaltyShootout: value === "true",
+                  })
+                }
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Disputa de pênaltis?" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="true">Sim</SelectItem>
@@ -1145,8 +1234,8 @@ MatchesTabProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    {tournament.stages.map((stage) => (
-                      <SelectItem key={stage.order} value={stage.order}>
+                    {currentSeason.stages.map((stage) => (
+                      <SelectItem key={stage.id} value={stage.id}>
                         {stage.name} ({stage.type.name})
                       </SelectItem>
                     ))}
@@ -1156,7 +1245,7 @@ MatchesTabProps) {
             </div>
 
             {matchForm.stageId &&
-              tournament.stages.find((s) => s.order === matchForm.stageId)
+              currentSeason.stages.find((s) => s.order === matchForm.stageId)
                 ?.hasMatchdays && (
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="matchMatchday" className="text-right">
@@ -1174,7 +1263,7 @@ MatchesTabProps) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        {tournament.stages
+                        {currentSeason.stages
                           .find((s) => s.order === matchForm.stageId)!
                           .matchdays?.map((matchday) => (
                             <SelectItem key={matchday.id} value={matchday.id}>
@@ -1208,12 +1297,14 @@ MatchesTabProps) {
                     {availableTournamentTeams.map((team) => (
                       <SelectItem key={team.id} value={team.id}>
                         <div className="flex items-center gap-2">
-                          <img
+                          <Image
+                            width={16}
+                            height={16}
                             src={team.club.logo}
-                            alt={team.club.name}
+                            alt={team.name}
                             className="h-4 w-4"
                           />
-                          {team.club.name}
+                          {team.name}
                         </div>
                       </SelectItem>
                     ))}
@@ -1243,12 +1334,14 @@ MatchesTabProps) {
                       .map((team) => (
                         <SelectItem key={team.id} value={team.id}>
                           <div className="flex items-center gap-2">
-                            <img
+                            <Image
+                              width={16}
+                              height={16}
                               src={team.club.logo}
-                              alt={team.club.name}
+                              alt={team.name}
                               className="h-4 w-4"
                             />
-                            {team.club.name}
+                            {team.name}
                           </div>
                         </SelectItem>
                       ))}
@@ -1258,75 +1351,79 @@ MatchesTabProps) {
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="date" className="text-right">
-                Data
+              <Label htmlFor="dateTime" className="text-right">
+                Data e Hora
               </Label>
-              <Input
-                type="date"
-                id="date"
-                value={matchForm.date}
-                onChange={(e) =>
-                  setMatchForm({ ...matchForm, date: e.target.value })
-                }
-                className="col-span-3"
-              />
+              <div className="col-span-3">
+                <DateTimePicker24h
+                  value={
+                    matchForm.dateTime
+                      ? new Date(matchForm.dateTime)
+                      : undefined
+                  }
+                  onChange={(selectedDate) =>
+                    setMatchForm({
+                      ...matchForm,
+                      dateTime: selectedDate.toISOString(), // formato ISO: "2024-10-11T15:30:00Z"
+                    })
+                  }
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="time" className="text-right">
-                Hora
-              </Label>
-              <Input
-                type="time"
-                id="time"
-                value={matchForm.time}
-                onChange={(e) =>
-                  setMatchForm({ ...matchForm, time: e.target.value })
-                }
-                className="col-span-3"
-              />
-            </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="venueName" className="text-right">
+              <Label htmlFor="venueId" className="text-right">
                 Estádio
               </Label>
-              <Input
-                id="venueName"
-                value={matchForm.venueName}
-                onChange={(e) =>
-                  setMatchForm({ ...matchForm, venueName: e.target.value })
+              <Select
+                value={matchForm.venueId}
+                onValueChange={(value) =>
+                  setMatchForm({
+                    ...matchForm,
+                    venueId: value,
+                  })
                 }
-                className="col-span-3"
-              />
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Selecione o Estádio" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {venues.map((venue) => (
+                      <SelectItem key={venue.id} value={venue.id}>
+                        <div className="flex items-center gap-2">
+                          {venue.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="venueLocation" className="text-right">
-                Localização
-              </Label>
-              <Input
-                id="venueLocation"
-                value={matchForm.venueLocation}
-                onChange={(e) =>
-                  setMatchForm({ ...matchForm, venueLocation: e.target.value })
-                }
-                className="col-span-3"
-              />
-            </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="refereeName" className="text-right">
+              <Label htmlFor="matchMatchday" className="text-right">
                 Árbitro
               </Label>
-              <Input
-                id="refereeName"
-                value={matchForm.refereeName}
-                onChange={(e) =>
-                  setMatchForm({ ...matchForm, refereeName: e.target.value })
+              <Select
+                value={matchForm.refereeId}
+                onValueChange={(value) =>
+                  setMatchForm({ ...matchForm, refereeId: value })
                 }
-                className="col-span-3"
-              />
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Selecione o árbitro" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {referees.map((referee) => (
+                      <SelectItem key={referee.id} value={referee.id}>
+                        {referee.name}
+                      </SelectItem>
+                    )) || <SelectLabel>Nenhuma Árbitro disponível</SelectLabel>}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -1346,12 +1443,11 @@ MatchesTabProps) {
               disabled={
                 !matchForm.stageId ||
                 (!matchForm.matchdayId &&
-                  tournament.stages.find((s) => s.order === matchForm.stageId)
+                  currentSeason.stages.find((s) => s.id === matchForm.stageId)
                     ?.hasMatchdays) ||
                 !matchForm.homeTeamId ||
                 !matchForm.awayTeamId ||
-                !matchForm.date ||
-                !matchForm.time ||
+                !matchForm.dateTime ||
                 isLoading.saving
               }
             >
@@ -1374,11 +1470,12 @@ MatchesTabProps) {
 interface MatchCardProps {
   match: Match;
   onEdit: () => void;
-  onDelete: () => void;
   isDeleting: boolean;
 }
 
-function MatchCard({ match, onEdit, onDelete, isDeleting }: MatchCardProps) {
+function MatchCard({ match, onEdit, isDeleting }: MatchCardProps) {
+  const [matchToDelete, setMatchToDelete] = useState<Match | null>(null);
+
   return (
     <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
       <div className="flex justify-between items-center mb-2">
@@ -1393,12 +1490,14 @@ function MatchCard({ match, onEdit, onDelete, isDeleting }: MatchCardProps) {
 
       <div className="flex items-center justify-between py-2">
         <div className="flex items-center gap-3 flex-1">
-          <img
+          <Image
+            width={40}
+            height={40}
             src={match.homeTeam.club.logo}
-            alt={match.homeTeam.club.name}
+            alt={match.homeTeam.name}
             className="h-10 w-10"
           />
-          <span className="font-medium">{match.homeTeam.club.name}</span>
+          <span className="font-medium">{match.homeTeam.name}</span>
         </div>
         <div className="px-4 font-medium">
           {match.matchStats ? (
@@ -1410,10 +1509,12 @@ function MatchCard({ match, onEdit, onDelete, isDeleting }: MatchCardProps) {
           )}
         </div>
         <div className="flex items-center gap-3 flex-1 justify-end text-right">
-          <span className="font-medium">{match.awayTeam.club.name}</span>
-          <img
+          <span className="font-medium">{match.awayTeam.name}</span>
+          <Image
+            width={40}
+            height={40}
             src={match.awayTeam.club.logo}
-            alt={match.awayTeam.club.name}
+            alt={match.awayTeam.name}
             className="h-10 w-10"
           />
         </div>
@@ -1442,11 +1543,22 @@ function MatchCard({ match, onEdit, onDelete, isDeleting }: MatchCardProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={onDelete}
+            onClick={() => {
+              setMatchToDelete(match);
+            }}
             disabled={isDeleting}
           >
             <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
+          {matchToDelete && (
+            <AlertDialogMatch
+              open={!!matchToDelete}
+              onOpenChange={(open) => {
+                if (!open) setMatchToDelete(null);
+              }}
+              match={matchToDelete}
+            />
+          )}
         </div>
       </div>
     </div>

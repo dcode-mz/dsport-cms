@@ -183,20 +183,6 @@ export const columns: ColumnDef<Tournament>[] = [
     ),
   },
   {
-    accessorKey: "stages",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-      >
-        Fases
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
-    ),
-    cell: ({ row }) =>
-      row.original.stages.map((stage) => stage.name).join(", "),
-  },
-  {
     accessorKey: "seasons[0]._count.teams",
     header: ({ column }) => (
       <Button
@@ -207,7 +193,9 @@ export const columns: ColumnDef<Tournament>[] = [
         <ArrowUpDown className="ml-2 h-4 w-4" />
       </Button>
     ),
-    cell: ({ row }) => row.original?.seasons?.[0]?._count?.teams ?? 0,
+    cell: ({ row }) =>
+      row.original?.seasons?.filter((season) => (season.isCurrent = true))?.[0]
+        ?._count?.teams ?? 0,
   },
   {
     id: "actions",

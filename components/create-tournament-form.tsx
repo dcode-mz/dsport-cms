@@ -36,6 +36,7 @@ const createTournamentFormSchema = z.object({
   endDate: z.string().datetime(),
   description: z.string().optional(),
   third_place: z.boolean().optional(),
+  round_trip: z.boolean().optional(),
 });
 
 export default function CreateTournamentForm({
@@ -46,7 +47,6 @@ export default function CreateTournamentForm({
   const [step, setStep] = useState(1);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
-  
 
   const form = useForm<z.infer<typeof createTournamentFormSchema>>({
     resolver: zodResolver(createTournamentFormSchema),
@@ -66,6 +66,7 @@ export default function CreateTournamentForm({
       startDate: "",
       endDate: "",
       third_place: false,
+      round_trip: false,
     },
   });
 
@@ -83,6 +84,7 @@ export default function CreateTournamentForm({
         "type",
         "level",
         "category",
+        "round_trip",
         "sport",
         "season",
         "startDate",
@@ -99,10 +101,15 @@ export default function CreateTournamentForm({
 
   function onSubmit(values: z.infer<typeof createTournamentFormSchema>) {
     startTransition(async () => {
-      await createTournament(values);
-      toast.success("Torneio criado com sucesso!");
-      router.push("/dashboard/tournaments");
-      form.reset();
+      const response = await createTournament(values);
+      if (response.successful) {
+        toast.success("Torneio criado com sucesso!");
+        router.push(`/dashboard/tournaments/${response.payload.id}`);
+      } else {
+        const error = await response.json();
+        toast.error(error.message);
+        return;
+      }
     });
   }
 
@@ -151,8 +158,9 @@ export default function CreateTournamentForm({
 
           {step === 2 &&
             form.getValues("type") ===
-              characteristicsResponse.types.find((item) => item.name === "TAÇA")
-                ?.id && (
+              characteristicsResponse.types.find(
+                (item) => item.name === "ELIMINATÓRIA"
+              )?.id && (
               <TournamentCupFormTab
                 isPending={isPending}
                 form={form}
@@ -161,9 +169,13 @@ export default function CreateTournamentForm({
             )}
 
           {step === 2 &&
-            form.getValues("type") ===
+            (form.getValues("type") ===
               characteristicsResponse.types.find((item) => item.name === "LIGA")
-                ?.id && (
+                ?.id ||
+              form.getValues("type") ===
+                characteristicsResponse.types.find(
+                  (item) => item.name === "LIGA_E_ELIMINATÓRIA"
+                )?.id) && (
               <TournamentLeagueFormTab
                 isPending={isPending}
                 characteristicsResponse={characteristicsResponse}

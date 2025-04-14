@@ -12,21 +12,30 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Separator } from "@radix-ui/react-separator";
-import CreateTournamentForm from "@/components/create-tournament-form";
+import { columns } from "./columns";
 import { ResponseBody } from "@/app/types/response-body";
-import { TournamentCharacteristics } from "@/app/types/tournament";
+import { AppTable } from "@/components/app-table";
+import { Referee } from "@/app/types/referee";
+import CreateRefereeDialog from "@/components/create-referee-dialog";
+import { Country } from "@/app/types/country";
 
-async function CreateTournamentPage() {
+async function ClubPage() {
+  const data = await fetch("http://localhost:4000/referee", {
+    method: "GET",
+    next: {
+      tags: ["get-referees"],
+    },
+  });
 
-  const characteristicsData = await fetch(
-    "http://localhost:4000/tournament/characteristics",
-    {
-      method: "GET",
-    }
-  );
+  const response: ResponseBody<Referee[]> = await data.json();
 
-  const characteristicsResponse: ResponseBody<TournamentCharacteristics> =
-    await characteristicsData.json();
+  const countryData = await fetch("http://localhost:4000/country", {
+    method: "GET",
+    next: {
+      tags: ["get-referees"],
+    },
+  });
+  const countryResponse: ResponseBody<Country[]> = await countryData.json();
 
   return (
     <SidebarProvider>
@@ -54,15 +63,13 @@ async function CreateTournamentPage() {
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 pt-10 md:pl-20">
-          <h1 className="text-3xl font-bold">Criar Novo Torneio</h1>
-
-          <CreateTournamentForm
-            characteristicsResponse={characteristicsResponse.payload}
-          />
+          <h1 className="text-3xl font-bold">Árbitros</h1>
+          <CreateRefereeDialog countries={countryResponse.payload} />
+          <AppTable columns={columns} data={response.payload} />
         </div>
       </SidebarInset>
     </SidebarProvider>
   );
 }
 
-export default CreateTournamentPage;
+export default ClubPage;

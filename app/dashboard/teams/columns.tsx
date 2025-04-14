@@ -49,7 +49,6 @@ const TeamsActions = ({ team }: { team: Team }) => {
 
 export const columns: ColumnDef<Team>[] = [
   {
-
     accessorKey: "club.logo",
     header: () => "Logotipo",
     cell: ({ row }) => {
@@ -69,18 +68,6 @@ export const columns: ColumnDef<Team>[] = [
     },
   },
   {
-    accessorKey: "name",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-      >
-        Nome
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
-    ),
-  },
-  {
     accessorKey: "club.name",
     header: ({ column }) => (
       <Button
@@ -93,13 +80,25 @@ export const columns: ColumnDef<Team>[] = [
     ),
   },
   {
+    accessorKey: "name",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+      >
+        Nome da Equipa
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+  },
+  {
     accessorKey: "teamType.name",
     header: ({ column }) => (
       <Button
         variant="ghost"
         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
       >
-        Tipe de Equipe
+        Tipo
         <ArrowUpDown className="ml-2 h-4 w-4" />
       </Button>
     ),

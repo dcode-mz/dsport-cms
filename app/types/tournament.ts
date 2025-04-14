@@ -14,15 +14,16 @@ export interface Tournament {
   category: { name: string };
   tieBreakerRule: { tieBreakerRuleType: { name: string }; priority: number }[];
   sport: { name: string };
-  stages: Stage[];
   _count: { teams: number };
   seasons: {
     id: string;
     startDate: Date;
     endDate: Date;
     isCurrent: boolean;
+    stages: Stage[];
     teams: {
       id: string;
+      name: string;
       club: {
         name: string;
         logo: string;

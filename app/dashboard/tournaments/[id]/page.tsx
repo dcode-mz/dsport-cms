@@ -13,41 +13,41 @@ export default async function TournamentPage({
 }: {
   params: { id: string };
 }) {
-  const handleStageCreated = () => {
-    console.log("Stage created");
-  };
+  // const handleStageCreated = () => {
+  //   console.log("Stage created");
+  // };
 
-  const handleStageUpdated = () => {
-    console.log("Stage updated");
-  };
+  // const handleStageUpdated = () => {
+  //   console.log("Stage updated");
+  // };
 
-  const handleStageDeleted = () => {
-    console.log("Stage deleted");
-  };
+  // const handleStageDeleted = () => {
+  //   console.log("Stage deleted");
+  // };
 
-  const handleMatchdayCreated = () => {
-    console.log("Matchday created");
-  };
+  // const handleMatchdayCreated = () => {
+  //   console.log("Matchday created");
+  // };
 
-  const handleMatchdayUpdated = () => {
-    console.log("Matchday updated");
-  };
+  // const handleMatchdayUpdated = () => {
+  //   console.log("Matchday updated");
+  // };
 
-  const handleMatchdayDeleted = () => {
-    console.log("Matchday deleted");
-  };
+  // const handleMatchdayDeleted = () => {
+  //   console.log("Matchday deleted");
+  // };
 
-  const handleMatchCreated = () => {
-    console.log("Match created");
-  };
+  // const handleMatchCreated = () => {
+  //   console.log("Match created");
+  // };
 
-  const handleMatchUpdated = () => {
-    console.log("Match updated");
-  };
+  // const handleMatchUpdated = () => {
+  //   console.log("Match updated");
+  // };
 
-  const handleMatchDeleted = () => {
-    console.log("Match deleted");
-  };
+  // const handleMatchDeleted = () => {
+  //   console.log("Match deleted");
+  // };
   const { id } = await params;
   const response = await fetch(`http://localhost:4000/tournament/${id}`);
   const tournament: ResponseBody<Tournament> = await response.json();
@@ -72,8 +72,18 @@ export default async function TournamentPage({
   );
 
   const availableTournamentTeams: ResponseBody<
-    { id: string; club: { name: string; logo: string } }[]
+    { id: string; name: string; club: { name: string; logo: string } }[]
   > = await responseTeams.json();
+
+  const responseStageTypes = await fetch(`http://localhost:4000/stage/types`);
+  const stageTypes = await responseStageTypes.json();
+
+  const responseReferees = await fetch(`http://localhost:4000/referee`);
+  const referees = await responseReferees.json();
+
+  const responseVenue = await fetch(`http://localhost:4000/venue`);
+  const venues = await responseVenue.json();
+
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -96,6 +106,9 @@ export default async function TournamentPage({
           <MatchesTab
             tournament={tournament.payload}
             availableTournamentTeams={availableTournamentTeams.payload}
+            stageTypes={stageTypes}
+            referees={referees.payload}
+            venues={venues.payload}
             // onStageCreated={handleStageCreated}
             // onStageUpdated={handleStageUpdated}
             // onStageDeleted={handleStageDeleted}

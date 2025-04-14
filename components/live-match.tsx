@@ -26,7 +26,6 @@ import {
   SelectValue,
 } from "./ui/select";
 import { Label } from "./ui/label";
-import { time } from "console";
 import { useRouter } from "next/navigation";
 
 type MatchPhase =

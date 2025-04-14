@@ -40,7 +40,7 @@ export async function StandingsTab({ tournament }: { tournament: Tournament }) {
         </TableHeader>
         <TableBody>
           {standings.map((standing, index) => (
-            <TableRow key={standing.team.club.name}>
+            <TableRow key={standing.team.name}>
               <TableCell>{index + 1}</TableCell>
               <TableCell className="font-medium">
                 <div className="flex">
@@ -48,10 +48,10 @@ export async function StandingsTab({ tournament }: { tournament: Tournament }) {
                     src={standing.team.club.logo}
                     width={24}
                     height={24}
-                    alt={standing.team.club.name}
+                    alt={standing.team.name}
                     className="w-6 h-6 mr-2"
                   />
-                  <span>{standing.team.club.name}</span>
+                  <span>{standing.team.name}</span>
                 </div>
               </TableCell>
               <TableCell>{standing.played}</TableCell>

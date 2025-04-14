@@ -1,5 +1,6 @@
 export interface LeagueStanding {
   team: {
+    name: string;
     club: {
       name: string;
       logo: string;

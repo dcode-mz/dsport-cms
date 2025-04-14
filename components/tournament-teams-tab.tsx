@@ -20,6 +20,7 @@ import Image from "next/image";
 
 type Team = {
   id: string;
+  name: string;
   club: {
     name: string;
     logo: string;
@@ -43,35 +44,13 @@ export function TeamsTab({
   );
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState({
-    current: true,
+    current: false,
     available: false,
     saving: false,
   });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  // 1. Carrega as equipas já no torneio quando o componente monta
-  useEffect(() => {
-    const fetchCurrentTeams = async () => {
-      try {
-        // setCurrentTeams(data.teams);
-        // setSelectedTeams(data.teams); // Inicializa as selecionadas com as atuais
-      } catch (error) {
-        console.error("Error fetching current teams:", error);
-        toast("Não foi possível carregar as equipas do torneio");
-        // toast({
-        //   title: "Erro",
-        //   description: "Não foi possível carregar as equipas do torneio",
-        //   variant: "destructive",
-        // });
-      } finally {
-        setIsLoading((prev) => ({ ...prev, current: false }));
-      }
-    };
-
-    fetchCurrentTeams();
-  }, [tournament]);
-
-  // 2. Busca equipas disponíveis quando o modal abre ou quando o termo de pesquisa muda
+  // Busca equipas disponíveis quando o modal abre ou quando o termo de pesquisa muda
   useEffect(() => {
     if (isDialogOpen) {
       fetchAvailableTeams();
@@ -134,7 +113,6 @@ export function TeamsTab({
     } catch (error) {
       console.error("Error saving teams:", error);
       toast("Não foi possível atualizar as equipas do torneio");
-
     } finally {
       setIsLoading((prev) => ({ ...prev, saving: false }));
     }
@@ -203,7 +181,7 @@ export function TeamsTab({
                           <div className="flex items-center space-x-3">
                             <Image
                               src={team.club.logo}
-                              alt={team.club.name}
+                              alt={team.name}
                               width={32}
                               height={32}
                               className="h-8 w-8 rounded-full object-cover"
@@ -213,7 +191,7 @@ export function TeamsTab({
                               }}
                             />
                             <div>
-                              <p className="font-medium">{team.club.name}</p>
+                              <p className="font-medium">{team.name}</p>
                               {/* {team.country && (
                                 <p className="text-xs text-muted-foreground">
                                   {team.country}
@@ -257,7 +235,7 @@ export function TeamsTab({
                           <div className="flex items-center space-x-3">
                             <Image
                               src={team.club.logo}
-                              alt={team.club.name}
+                              alt={team.name}
                               width={32}
                               height={32}
                               className="h-8 w-8 rounded-full object-cover"
@@ -267,7 +245,7 @@ export function TeamsTab({
                               }}
                             />
                             <div>
-                              <p className="font-medium">{team.club.name}</p>
+                              <p className="font-medium">{team.name}</p>
                               {/* {team.country && (
                                 <p className="text-xs text-muted-foreground">
                                   {team.country}
@@ -335,7 +313,7 @@ export function TeamsTab({
             >
               <Image
                 src={team.club.logo}
-                alt={team.club.name}
+                alt={team.name}
                 width={48}
                 height={48}
                 className="h-12 w-12 rounded-full object-cover"
@@ -344,7 +322,7 @@ export function TeamsTab({
                 }}
               />
               <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{team.club.name}</p>
+                <p className="font-medium truncate">{team.name}</p>
                 {/* {team.country && (
                   <p className="text-sm text-muted-foreground truncate">
                     {team.country}

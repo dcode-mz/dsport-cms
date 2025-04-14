@@ -1,9 +1,11 @@
 import { Matchday } from "./matchday";
 
 export interface Stage {
+  id: string;
   name: string;
   order: string;
   type: {
+    id: string;
     name: string;
   };
   hasMatchdays: boolean;

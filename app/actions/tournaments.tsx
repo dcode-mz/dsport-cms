@@ -33,6 +33,7 @@ const createTournamentFormSchema = z.object({
   endDate: z.string().datetime(),
   description: z.string().optional(),
   third_place: z.boolean().optional(),
+  round_trip: z.boolean().optional(),
 });
 
 export async function createTournament(
@@ -56,6 +57,7 @@ export async function createTournament(
         levelId: data.level,
         categoryId: data.category,
         tieBreakerRule: data.tieBreakerRuleTypes,
+        round_trip: data.round_trip,
         sportId: data.sport,
         seasonId: data.season,
         startDate: data.startDate,
@@ -68,6 +70,10 @@ export async function createTournament(
     });
 
     console.log(response);
+
+    const responseBody = await response.json();
+
+    return responseBody;
   } catch (error) {
     console.error("Erro de validação no servidor:", error);
     throw new Error("Dados inválidos");

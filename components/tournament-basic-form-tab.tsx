@@ -225,6 +225,29 @@ export default function TournamentBasicInfoFormTab({
         />
         <FormField
           control={form.control}
+          name="round_trip"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Ida e Volta?</FormLabel>
+              <FormControl>
+                <Select
+                  onValueChange={(value) => field.onChange(value === "true")}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="true">Sim</SelectItem>
+                    <SelectItem value="false">Não</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
           name="sport"
           render={({ field }) => (
             <FormItem>

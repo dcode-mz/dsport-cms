@@ -125,6 +125,17 @@ const data = {
         },
       ],
     },
+    {
+      title: "Árbitros",
+      url: "#",
+      icon: PersonStanding,
+      items: [
+        {
+          title: "List",
+          url: "/dashboard/referees",
+        },
+      ],
+    },
     // {
     //   title: "Documentation",
     //   url: "#",
