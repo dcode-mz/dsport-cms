@@ -56,7 +56,7 @@ export const columns: ColumnDef<Player>[] = [
       <Image
         width={32}
         height={32}
-        src={row.original.photoUrl || "/default-image.png"}
+        src={row.original.photoUrl || "/default-player-picture.png"}
         alt="Logo"
         className="h-8 w-8 rounded-full"
       />
@@ -106,6 +106,18 @@ export const columns: ColumnDef<Player>[] = [
         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
       >
         Pé preferido
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+  },
+  {
+    accessorKey: "gender.name",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+      >
+        Género
         <ArrowUpDown className="ml-2 h-4 w-4" />
       </Button>
     ),

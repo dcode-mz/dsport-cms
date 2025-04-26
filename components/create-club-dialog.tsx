@@ -40,9 +40,7 @@ const createClubFormSchema = z.object({
   shortName: z.string(),
   foundingDate: z.string(),
   website: z.string().url().optional(),
-  description: z
-    .string()
-    .min(10, "A descrição deve ter pelo menos 10 caracteres"),
+  description: z.string().optional(),
 });
 
 export default function CreateClubDialog() {
@@ -63,7 +61,6 @@ export default function CreateClubDialog() {
 
   function onSubmit(values: z.infer<typeof createClubFormSchema>) {
     startTransition(async () => {
-      console.log(values);
       await createClub(values);
       toast.success("Clube criado com sucesso!");
       setOpen(false);

@@ -598,7 +598,10 @@ MatchesTabProps) {
                         <Image
                           width={24}
                           height={24}
-                          src={match.homeTeam.club.logo}
+                          src={
+                            match.homeTeam.club.logo ||
+                            "/default-club-picture.png"
+                          }
                           alt={match.homeTeam.name}
                           className="h-6 w-6"
                         />
@@ -610,7 +613,10 @@ MatchesTabProps) {
                         <Image
                           width={24}
                           height={24}
-                          src={match.awayTeam.club.logo}
+                          src={
+                            match.awayTeam.club.logo ||
+                            "/default-club-picture.png"
+                          }
                           alt={match.awayTeam.name}
                           className="h-6 w-6"
                         />
@@ -1294,7 +1300,7 @@ MatchesTabProps) {
                           <Image
                             width={16}
                             height={16}
-                            src={team.club.logo}
+                            src={team.club.logo || "/default-club-picture.png"}
                             alt={team.name}
                             className="h-4 w-4"
                           />
@@ -1331,7 +1337,9 @@ MatchesTabProps) {
                             <Image
                               width={16}
                               height={16}
-                              src={team.club.logo}
+                              src={
+                                team.club.logo || "/default-club-picture.png"
+                              }
                               alt={team.name}
                               className="h-4 w-4"
                             />
@@ -1487,7 +1495,7 @@ function MatchCard({ match, onEdit, isDeleting }: MatchCardProps) {
           <Image
             width={40}
             height={40}
-            src={match.homeTeam.club.logo}
+            src={match.homeTeam.club.logo || "/default-club-picture.png"}
             alt={match.homeTeam.name}
             className="h-10 w-10"
           />
@@ -1507,7 +1515,7 @@ function MatchCard({ match, onEdit, isDeleting }: MatchCardProps) {
           <Image
             width={40}
             height={40}
-            src={match.awayTeam.club.logo}
+            src={match.awayTeam.club.logo || "/default-club-picture.png"}
             alt={match.awayTeam.name}
             className="h-10 w-10"
           />

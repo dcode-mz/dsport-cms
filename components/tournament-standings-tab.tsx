@@ -45,7 +45,9 @@ export async function StandingsTab({ tournament }: { tournament: Tournament }) {
               <TableCell className="font-medium">
                 <div className="flex">
                   <Image
-                    src={standing.team.club.logo}
+                    src={
+                      standing.team.club.logo || "/default-club-picture.png"
+                    }
                     width={24}
                     height={24}
                     alt={standing.team.name}

@@ -10,39 +10,46 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const createClubFormSchema = z.object({
-  name: z.string().min(3, "O nome deve ter pelo menos 3 caracteres"),
-  logo: z.instanceof(File).optional(),
-  shortName: z.string(),
-  foundingDate: z.string(),
-  website: z.string().url().optional(),
-  description: z
-    .string()
-    .min(10, "A descrição deve ter pelo menos 10 caracteres"),
+const playerFormSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  nickname: z.string().optional(),
+  preferredPosition: z.string().uuid("Posição inválida"),
+  sport: z.string().uuid("Desporto inválido"),
+  gender: z.string().uuid("Género inválida"),
+  preferredFoot: z.string().optional(),
+  dateOfBirth: z.string(),
+  primaryNationality: z.string().uuid("Nacionalidade inválida"),
+  height: z.coerce.number().min(1, "Altura inválida"),
+  weight: z.coerce.number().min(1, "Peso inválido"),
+  photo: z.instanceof(File).optional(),
+  team: z.string().optional(),
 });
 
-export async function createClub(data: z.infer<typeof createClubFormSchema>) {
+export async function createPlayer(data: z.infer<typeof playerFormSchema>) {
   try {
-    createClubFormSchema.parse(data);
+    playerFormSchema.parse(data);
 
-    const logoURL = data.logo ? await uploadImage(data.logo) : undefined;
+    const photoUrl = data.photo ? await uploadImage(data.photo) : undefined;
 
-    const response = await fetch("http://localhost:4000/club/", {
+    await fetch("http://localhost:4000/player/", {
       method: "POST",
       body: JSON.stringify({
         name: data.name,
-        description: data.description,
-        logo: logoURL,
-        shortName: data.shortName,
-        foundingDate: data.foundingDate,
-        website: data.website,
+        nickname: data.nickname,
+        preferredPositionId: data.preferredPosition,
+        preferredFootId: data.preferredFoot,
+        genderId: data.gender,
+        dateOfBirth: data.dateOfBirth,
+        primaryNationalityId: data.primaryNationality,
+        height: data.height,
+        weight: data.weight,
+        photoUrl,
+        teamId: data.team,
       }),
       headers: {
         "Content-Type": "application/json",
       },
     });
-
-    console.log(response);
   } catch (error) {
     console.error("Erro de validação no servidor:", error);
     throw new Error("Dados inválidos");
@@ -68,7 +75,7 @@ export async function uploadImage(file: File) {
     const result: UploadApiResponse | undefined = await new Promise(
       (resolve, reject) => {
         cloudinary.uploader
-          .upload_stream({ folder: "dsport/clubs/logo" }, (error, result) => {
+          .upload_stream({ folder: "dsport/players" }, (error, result) => {
             if (error) reject(error);
             else resolve(result);
           })

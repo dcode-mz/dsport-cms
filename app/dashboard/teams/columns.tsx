@@ -54,16 +54,14 @@ export const columns: ColumnDef<Team>[] = [
     cell: ({ row }) => {
       const logo = row.original.club?.logo;
 
-      return logo ? (
+      return (
         <Image
           width={32}
           height={32}
-          src={logo}
+          src={logo ?? "/default-club-picture.png"}
           alt="Logo"
           className="h-8 w-8 rounded-full"
         />
-      ) : (
-        <span>—</span>
       );
     },
   },

@@ -56,7 +56,9 @@ export const columns: ColumnDef<Club>[] = [
       <Image
         width={32}
         height={32}
-        src={row.original.logo}
+        src={
+          row.original.logo ? row.original.logo : "/default-club-picture.png"
+        }
         alt="Logo"
         className="h-8 w-8 rounded-full"
       />

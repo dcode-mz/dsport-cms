@@ -180,7 +180,9 @@ export function TeamsTab({
                         >
                           <div className="flex items-center space-x-3">
                             <Image
-                              src={team.club.logo}
+                              src={
+                                team.club.logo || "/default-club-picture.png"
+                              }
                               alt={team.name}
                               width={32}
                               height={32}
@@ -234,14 +236,16 @@ export function TeamsTab({
                         >
                           <div className="flex items-center space-x-3">
                             <Image
-                              src={team.club.logo}
+                              src={
+                                team.club.logo || "/default-club-picture.png"
+                              }
                               alt={team.name}
                               width={32}
                               height={32}
                               className="h-8 w-8 rounded-full object-cover"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).src =
-                                  "/default-team-logo.png";
+                                  "/default-club-picture.png";
                               }}
                             />
                             <div>
@@ -312,13 +316,16 @@ export function TeamsTab({
               className="border rounded-lg p-4 flex items-center space-x-3 hover:bg-muted/50"
             >
               <Image
-                src={team.club.logo}
+                src={
+                  team.club.logo || "/default-club-picture.png"
+                }
                 alt={team.name}
                 width={48}
                 height={48}
                 className="h-12 w-12 rounded-full object-cover"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = "/default-team-logo.png";
+                  (e.target as HTMLImageElement).src =
+                    "/default-club-picture.png";
                 }}
               />
               <div className="flex-1 min-w-0">

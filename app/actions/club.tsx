@@ -16,9 +16,7 @@ const createClubFormSchema = z.object({
   shortName: z.string(),
   foundingDate: z.string(),
   website: z.string().url().optional(),
-  description: z
-    .string()
-    .min(10, "A descrição deve ter pelo menos 10 caracteres"),
+  description: z.string().optional(),
 });
 
 export async function createClub(data: z.infer<typeof createClubFormSchema>) {
@@ -27,7 +25,7 @@ export async function createClub(data: z.infer<typeof createClubFormSchema>) {
 
     const logoURL = data.logo ? await uploadImage(data.logo) : undefined;
 
-    const response = await fetch("http://localhost:4000/club/", {
+    await fetch("http://localhost:4000/club/", {
       method: "POST",
       body: JSON.stringify({
         name: data.name,
@@ -41,8 +39,6 @@ export async function createClub(data: z.infer<typeof createClubFormSchema>) {
         "Content-Type": "application/json",
       },
     });
-
-    console.log(response);
   } catch (error) {
     console.error("Erro de validação no servidor:", error);
     throw new Error("Dados inválidos");

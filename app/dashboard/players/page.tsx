@@ -15,8 +15,8 @@ import { Separator } from "@radix-ui/react-separator";
 import { columns } from "./columns";
 import { ResponseBody } from "@/app/types/response-body";
 import { AppTable } from "@/components/app-table";
-import { Player } from "@/app/types/player";
-import CreatePlayerDialog from "@/components/create-club-player";
+import { Player, PlayerCharacteristics } from "@/app/types/player";
+import CreatePlayerDialog from "@/components/create-player-dialog";
 
 async function ClubPage() {
   const data = await fetch("http://localhost:4000/player", {
@@ -27,6 +27,12 @@ async function ClubPage() {
   });
 
   const response: ResponseBody<Player[]> = await data.json();
+
+  const playerCharacteristicsResponse = await fetch(
+    "http://localhost:4000/player/characteristics"
+  );
+  const playerCharacteristics: ResponseBody<PlayerCharacteristics> =
+    await playerCharacteristicsResponse.json();
 
   return (
     <SidebarProvider>
@@ -55,7 +61,9 @@ async function ClubPage() {
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 pt-10 md:pl-20">
           <h1 className="text-3xl font-bold">Jogadores</h1>
-          <CreatePlayerDialog />
+          <CreatePlayerDialog
+            playerCharacteristics={playerCharacteristics.payload}
+          />
           <AppTable columns={columns} data={response.payload} />
         </div>
       </SidebarInset>
