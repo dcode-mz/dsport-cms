@@ -46,6 +46,9 @@ import Image from "next/image";
 const playerFormSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   nickname: z.string().optional(),
+  preferredNumber: z
+    .coerce
+    .number().optional(),
   preferredPosition: z.string().uuid("Posição inválida"),
   sport: z.string().uuid("Desporto inválido"),
   gender: z.string().uuid("Género inválida"),
@@ -126,6 +129,23 @@ export default function CreatePlayerDialog({
                   <FormLabel>Nickname</FormLabel>
                   <FormControl>
                     <Input placeholder="Nickname" {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="preferredNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Número preferido</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="Número preferido"
+                      {...field}
+                    />
                   </FormControl>
                 </FormItem>
               )}

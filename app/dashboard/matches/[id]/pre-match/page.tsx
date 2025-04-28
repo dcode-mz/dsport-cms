@@ -41,6 +41,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
+import Image from "next/image";
 
 interface Game {
   id: string;
@@ -274,10 +275,17 @@ export default function GamePage({ params }: { params: { id: string } }) {
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <Avatar className="h-14 w-14 border-2 border-white shadow">
+              {/* <Avatar className="h-14 w-14 border-2 border-white shadow">
                 <AvatarImage src={game.homeTeam.logo} />
                 <AvatarFallback>{game.homeTeam.name[0]}</AvatarFallback>
-              </Avatar>
+              </Avatar> */}
+              <Image
+                src={game.homeTeam.logo}
+                alt={game.homeTeam.name}
+                width={50}
+                height={50}
+                className="h-14 w-14"
+              />
               <span className="text-xl font-bold">{game.homeTeam.name}</span>
             </div>
 
@@ -296,10 +304,17 @@ export default function GamePage({ params }: { params: { id: string } }) {
 
             <div className="flex items-center gap-2">
               <span className="text-xl font-bold">{game.awayTeam.name}</span>
-              <Avatar className="h-14 w-14 border-2 border-white shadow">
+              {/* <Avatar className="h-14 w-14 border-2 border-white shadow">
                 <AvatarImage src={game.awayTeam.logo} />
                 <AvatarFallback>{game.awayTeam.name[0]}</AvatarFallback>
-              </Avatar>
+              </Avatar> */}
+              <Image
+                src={game.awayTeam.logo}
+                alt={game.awayTeam.name}
+                width={50}
+                height={50}
+                className="h-14 w-14"
+              />
             </div>
           </div>
 

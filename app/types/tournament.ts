@@ -28,6 +28,7 @@ export interface Tournament {
         name: string;
         logo: string;
       };
+      playersRegistered: boolean;
     }[];
     _count: { teams: number };
   }[];

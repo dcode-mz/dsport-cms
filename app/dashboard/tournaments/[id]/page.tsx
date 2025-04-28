@@ -7,6 +7,7 @@ import { StandingsTab } from "../../../../components/tournament-standings-tab";
 import { ResponseBody } from "@/app/types/response-body";
 import { Tournament } from "@/app/types/tournament";
 import { TeamCharacteristics } from "@/app/types/team";
+import { PlayersTab } from "@/components/tournament-players-tab";
 
 export default async function TournamentPage({
   params,
@@ -84,14 +85,14 @@ export default async function TournamentPage({
   const responseVenue = await fetch(`http://localhost:4000/venue`);
   const venues = await responseVenue.json();
 
-
   return (
     <div className="container mx-auto px-4 py-8">
       <TournamentHeader tournament={tournament.payload} />
 
       <Tabs defaultValue="teams" className="mt-8">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="teams">Equipas</TabsTrigger>
+          <TabsTrigger value="players">Jogadores</TabsTrigger>
           <TabsTrigger value="matches">Jogos</TabsTrigger>
           <TabsTrigger value="standings">Classificação</TabsTrigger>
         </TabsList>
@@ -101,6 +102,9 @@ export default async function TournamentPage({
             availableTournamentTeams={availableTournamentTeams.payload}
             tournament={tournament.payload}
           />
+        </TabsContent>
+        <TabsContent value="players">
+          <PlayersTab tournament={tournament.payload} />
         </TabsContent>
         <TabsContent value="matches">
           <MatchesTab

@@ -42,6 +42,7 @@ import {
   Pencil,
   ChevronDown,
   ChevronRight,
+  ListChecks,
 } from "lucide-react";
 import { Stage } from "@/app/types/stage";
 import { Tournament } from "@/app/types/tournament";
@@ -53,6 +54,7 @@ import { useRouter } from "next/navigation";
 import { AlertDialogMatchday } from "./alert-dialog-matchday";
 import { DateTimePicker24h } from "./date-time-picker";
 import { AlertDialogMatch } from "./alert-dialog-match";
+import Link from "next/link";
 
 type Team = {
   id: string;
@@ -1479,15 +1481,30 @@ function MatchCard({ match, onEdit, isDeleting }: MatchCardProps) {
   const [matchToDelete, setMatchToDelete] = useState<Match | null>(null);
 
   return (
-    <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-      <div className="flex justify-between items-center mb-2">
-        <span className="text-sm text-muted-foreground">
-          {new Date(match.dateTime).toLocaleDateString("pt-PT")}{" "}
-          {new Date(match.dateTime).toLocaleTimeString("pt-PT", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </span>
+    <div className="border rounded-lg p-4 hover:shadow-md transition-shadow relative">
+      {/* Botão de pré-jogo no canto superior direito */}
+
+      <div className="flex justify-between items-center mb-1">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-sm text-muted-foreground">
+            {new Date(match.dateTime).toLocaleDateString("pt-PT")}{" "}
+            {new Date(match.dateTime).toLocaleTimeString("pt-PT", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+        </div>
+        <div>
+          <Link href={`/dashboard/matches/${match.id}/pre-match`} passHref>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-gray-50"
+            >
+              <ListChecks className="h-4 w-4" /> <span>Pré-jogo</span>
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="flex items-center justify-between py-2">

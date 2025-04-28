@@ -13,6 +13,7 @@ cloudinary.config({
 const playerFormSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   nickname: z.string().optional(),
+  preferredNumber: z.coerce.number().optional(),
   preferredPosition: z.string().uuid("Posição inválida"),
   sport: z.string().uuid("Desporto inválido"),
   gender: z.string().uuid("Género inválida"),
@@ -36,6 +37,7 @@ export async function createPlayer(data: z.infer<typeof playerFormSchema>) {
       body: JSON.stringify({
         name: data.name,
         nickname: data.nickname,
+        preferredNumber: data.preferredNumber,
         preferredPositionId: data.preferredPosition,
         preferredFootId: data.preferredFoot,
         genderId: data.gender,
