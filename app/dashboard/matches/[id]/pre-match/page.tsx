@@ -672,7 +672,7 @@ export default function GamePage({
             <Button
               variant="default"
               className="relative bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg gap-2 overflow-hidden"
-              onClick={() => router.push(`/match/${matchId}/live`)}
+              onClick={() => router.push(`/dashboard/matches/${matchId}/live`)}
             >
               {/* Efeito de onda pulsante */}
               <span className="absolute inset-0">

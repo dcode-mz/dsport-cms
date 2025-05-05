@@ -1,5 +1,5 @@
+import { GameState } from "@/app/types/match-live";
 import { useState, useEffect } from "react";
-import { GameState } from "./game-types";
 
 export function useGameTimer(
   gameState: GameState,

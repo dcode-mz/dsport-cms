@@ -1,12 +1,13 @@
 import { Button } from "@/components/ui/button";
-import { EventType, GameEvent, Team, Player } from "./game-types";
+import { EventType, GameEvent, Team, Player } from "@/app/types/match-live";
 import Image from "next/image";
-import { cn } from "@/lib/utils";
 
 interface ConfirmationPanelProps {
   selectedEvent: EventType | null;
   selectedPlayer: Player | null;
   secondaryPlayer: Player | null;
+  foulPlayer: Player | null;
+  hasFoul: boolean;
   homeTeam: Team;
   awayTeam: Team;
   onConfirm: () => void;
@@ -14,20 +15,24 @@ interface ConfirmationPanelProps {
   onUndo: () => void;
   gameTime: string;
   currentQuarter: number;
-  needsSecondaryPlayer: boolean;
-  isSecondaryPlayerOptional: boolean;
 }
 
 const getEventLabel = (type: EventType) => {
   const labels = {
-    "2POINTS": "2 Pontos",
-    "3POINTS": "3 Pontos",
-    FREE_THROW: "Lance Livre",
-    FOUL: "Falta",
+    "2POINTS_MADE": "2 Pontos (Cesta)",
+    "2POINTS_MISSED": "2 Pontos (Erro)",
+    "3POINTS_MADE": "3 Pontos (Cesta)",
+    "3POINTS_MISSED": "3 Pontos (Erro)",
+    FREE_THROW_MADE: "Lance Livre (Cesta)",
+    FREE_THROW_MISSED: "Lance Livre (Erro)",
+    FOUL_PERSONAL: "Falta Pessoal",
     TURNOVER: "Turnover",
-    STEAL: "Roubo",
+    STEAL: "Roubo de Bola",
     BLOCK: "Bloqueio",
+    OFFENSIVE_REBOUND: "Rebote Ofensivo",
+    DEFENSIVE_REBOUND: "Rebote Defensivo",
     SUBSTITUTION: "Substituição",
+    ASSIST: "Assistência",
   };
   return labels[type] || type;
 };
@@ -47,10 +52,6 @@ const EventHistoryItem = ({
   };
 
   const mainPlayer = findPlayer(event.playerId);
-  const secondaryPlayer = event.secondaryPlayerId
-    ? findPlayer(event.secondaryPlayerId)
-    : null;
-  const assister = event.assistedBy ? findPlayer(event.assistedBy) : null;
   const team = homeTeam.players.some((p) => p.id === event.playerId)
     ? homeTeam
     : awayTeam;
@@ -58,65 +59,32 @@ const EventHistoryItem = ({
   const quarterLabel =
     event.quarter <= 4 ? `Q${event.quarter}` : `OT${event.quarter - 4}`;
 
-  const renderEventDetails = () => {
-    switch (event.type) {
-      case "2POINTS":
-      case "3POINTS":
-        return (
-          <div className="flex flex-col">
-            <span>
-              #{mainPlayer?.number} {mainPlayer?.name}
-            </span>
-            {assister && (
-              <span className="text-sm text-gray-500">
-                Assistência: #{assister.number}
-              </span>
-            )}
-          </div>
-        );
-      case "FOUL":
-        return (
-          <div className="flex flex-col">
-            <span>Cometida por: #{mainPlayer?.number}</span>
-            <span className="text-sm text-gray-500">
-              Sofrida por: #{secondaryPlayer?.number}
-            </span>
-          </div>
-        );
-      case "STEAL":
-        return (
-          <div className="flex flex-col">
-            <span>Roubo por: #{mainPlayer?.number}</span>
-            <span className="text-sm text-gray-500">
-              Perdida por: #{secondaryPlayer?.number}
-            </span>
-          </div>
-        );
-      case "BLOCK":
-        return (
-          <div className="flex flex-col">
-            <span>Bloqueio por: #{mainPlayer?.number}</span>
-            <span className="text-sm text-gray-500">
-              Arremesso de: #{secondaryPlayer?.number}
-            </span>
-          </div>
-        );
-      case "SUBSTITUTION":
-        return (
-          <div className="flex flex-col">
-            <span>Sai: #{mainPlayer?.number}</span>
-            <span className="text-sm text-gray-500">
-              Entra: #{secondaryPlayer?.number}
-            </span>
-          </div>
-        );
-      default:
-        return (
-          <span>
-            #{mainPlayer?.number} {mainPlayer?.name}
-          </span>
-        );
-    }
+  const renderRelatedEvents = () => {
+    if (!event.relatedEvents) return null;
+
+    return (
+      <div className="ml-4 pl-4 border-l-2 border-gray-200 mt-2">
+        {event.relatedEvents.map((relEvent, idx) => {
+          const player = relEvent.playerId
+            ? findPlayer(relEvent.playerId)
+            : null;
+          return (
+            <div key={idx} className="text-sm text-gray-600 mb-1">
+              {relEvent.type === "ASSIST" &&
+                `Assistência: #${player?.number} ${player?.name}`}
+              {relEvent.type === "FOUL_PERSONAL" &&
+                `Falta cometida por: #${player?.number} ${player?.name}`}
+              {relEvent.type.includes("REBOUND") &&
+                `Rebote: #${player?.number} ${player?.name}`}
+              {relEvent.type === "STEAL" &&
+                `Roubo por: #${player?.number} ${player?.name}`}
+              {relEvent.type === "SUBSTITUTION" &&
+                `Entrou: #${player?.number} ${player?.name}`}
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   return (
@@ -128,12 +96,17 @@ const EventHistoryItem = ({
             style={{ backgroundColor: team.primaryColor }}
           />
           <span className="font-medium">{getEventLabel(event.type)}</span>
+          {mainPlayer && (
+            <span className="text-gray-600">
+              #{mainPlayer.number} {mainPlayer.name}
+            </span>
+          )}
         </div>
         <span className="text-xs text-gray-500">
           {quarterLabel} {event.gameTime.split(" ")[1]}
         </span>
       </div>
-      {renderEventDetails()}
+      {renderRelatedEvents()}
     </div>
   );
 };
@@ -142,6 +115,8 @@ export function ConfirmationPanel({
   selectedEvent,
   selectedPlayer,
   secondaryPlayer,
+  foulPlayer,
+  hasFoul,
   homeTeam,
   awayTeam,
   onConfirm,
@@ -149,8 +124,6 @@ export function ConfirmationPanel({
   onUndo,
   gameTime,
   currentQuarter,
-  needsSecondaryPlayer,
-  isSecondaryPlayerOptional,
 }: ConfirmationPanelProps) {
   const getPlayerTeam = (playerId: string) => {
     return homeTeam.players.some((p) => p.id === playerId)
@@ -160,12 +133,6 @@ export function ConfirmationPanel({
 
   const quarterLabel =
     currentQuarter <= 4 ? `Q${currentQuarter}` : `OT${currentQuarter - 4}`;
-
-  const canConfirm =
-    selectedEvent &&
-    selectedPlayer &&
-    (!needsSecondaryPlayer ||
-      (isSecondaryPlayerOptional ? true : secondaryPlayer));
 
   const renderEventSummary = () => {
     if (!selectedEvent || !selectedPlayer) return null;
@@ -183,7 +150,7 @@ export function ConfirmationPanel({
         </div>
 
         <div className="flex items-center gap-3 ml-4">
-          {selectedPlayer.photo && (
+          {selectedPlayer.photo ? (
             <div className="relative w-10 h-10 rounded-full overflow-hidden">
               <Image
                 src={selectedPlayer.photo}
@@ -192,6 +159,10 @@ export function ConfirmationPanel({
                 height={40}
                 className="object-cover"
               />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-200">
+              <span className="font-bold">#{selectedPlayer.number}</span>
             </div>
           )}
           <div>
@@ -205,18 +176,17 @@ export function ConfirmationPanel({
         {secondaryPlayer && (
           <div className="flex items-center gap-3 ml-8">
             <div className="text-gray-500">
-              {selectedEvent === "2POINTS" || selectedEvent === "3POINTS"
+              {selectedEvent === "2POINTS_MADE" ||
+              selectedEvent === "3POINTS_MADE"
                 ? "Assistência:"
-                : selectedEvent === "FOUL"
-                ? "Contra:"
-                : selectedEvent === "STEAL"
-                ? "De:"
-                : selectedEvent === "BLOCK"
-                ? "Bloqueou:"
-                : "Entra:"}
+                : selectedEvent === "SUBSTITUTION"
+                ? "Entrou:"
+                : selectedEvent === "TURNOVER"
+                ? "Roubo por:"
+                : "Contra:"}
             </div>
             <div className="flex items-center gap-2">
-              {secondaryPlayer.photo && (
+              {secondaryPlayer.photo ? (
                 <div className="relative w-8 h-8 rounded-full overflow-hidden">
                   <Image
                     src={secondaryPlayer.photo}
@@ -226,9 +196,43 @@ export function ConfirmationPanel({
                     className="object-cover"
                   />
                 </div>
+              ) : (
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-200">
+                  <span className="text-sm font-bold">
+                    #{secondaryPlayer.number}
+                  </span>
+                </div>
               )}
               <span>
                 #{secondaryPlayer.number} {secondaryPlayer.name}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {hasFoul && foulPlayer && (
+          <div className="flex items-center gap-3 ml-8">
+            <div className="text-gray-500">Falta cometida por:</div>
+            <div className="flex items-center gap-2">
+              {foulPlayer.photo ? (
+                <div className="relative w-8 h-8 rounded-full overflow-hidden">
+                  <Image
+                    src={foulPlayer.photo}
+                    alt={foulPlayer.name}
+                    width={32}
+                    height={32}
+                    className="object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-200">
+                  <span className="text-sm font-bold">
+                    #{foulPlayer.number}
+                  </span>
+                </div>
+              )}
+              <span>
+                #{foulPlayer.number} {foulPlayer.name}
               </span>
             </div>
           </div>
@@ -249,16 +253,14 @@ export function ConfirmationPanel({
         )}
       </div>
 
-      <Button
-        onClick={onConfirm}
-        disabled={!canConfirm}
-        className={cn(
-          "w-full py-4 text-lg font-bold mb-6",
-          !canConfirm && "opacity-50 cursor-not-allowed"
-        )}
-      >
-        CONFIRMAR • {quarterLabel} {gameTime}
-      </Button>
+      {selectedPlayer && (
+        <Button
+          onClick={onConfirm}
+          className="w-full py-4 text-lg font-bold mb-6"
+        >
+          CONFIRMAR • {quarterLabel} {gameTime}
+        </Button>
+      )}
 
       <div className="mt-auto">
         <div className="flex justify-between items-center mb-3">

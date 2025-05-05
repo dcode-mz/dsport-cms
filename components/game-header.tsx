@@ -1,6 +1,6 @@
 import Image from "next/image";
-import { Team } from "./game-types";
 import { cn } from "@/lib/utils";
+import { Team } from "@/app/types/match-live";
 
 interface GameHeaderProps {
   homeTeam: Team;

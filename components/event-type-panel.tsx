@@ -1,5 +1,5 @@
+import { EventType } from "@/app/types/match-live";
 import { Button } from "@/components/ui/button";
-import { EventType } from "./game-types";
 import { cn } from "@/lib/utils";
 
 const eventTypes = [

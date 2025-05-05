@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { GameHeader } from "./GameHeader";
-import { EventTypePanel } from "./EventTypePanel";
-import { PlayerSelectionPanel } from "./PlayerSelectionPanel";
-import { ConfirmationPanel } from "./ConfirmationPanel";
-import { GameTimer } from "./GameTimer";
+import { EventTypePanel } from "../../../components/event-type-panel";
+import { PlayerSelectionPanel } from "../../../components/player-selection-panel";
+import { ConfirmationPanel } from "../../../components/confirmation-panel";
+import { GameTimer } from "../../../components/game-timer";
 import { GameState, Team } from "./game-types";
-import { useGameEvents } from "./useGameEvents";
-import { useGameTimer } from "./useGameTimer";
+import { useGameEvents } from "../../../hooks/use-game-events";
+import { useGameTimer } from "../../../hooks/use-game-timer";
+import { GameHeader } from "@/components/game-header";
 
 // Mock data
 const homeTeam: Team = {

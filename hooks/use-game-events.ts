@@ -5,7 +5,7 @@ import {
   Player,
   GameEvent,
   RelatedEvent,
-} from "./game-types";
+} from "@/app/types/match-live";
 
 type SelectionStep = "main" | "assist" | "foul" | "rebound" | "substitution";
 
@@ -188,7 +188,7 @@ export function useGameEvents(
     // Substituições
     if (selectedEvent === "SUBSTITUTION" && secondaryPlayer) {
       relatedEvents.push({
-        type: "SUBSTITUTION_IN",
+        type: "SUBSTITUTION",
         playerId: secondaryPlayer.id,
         teamId: secondaryPlayer.teamId,
       });
