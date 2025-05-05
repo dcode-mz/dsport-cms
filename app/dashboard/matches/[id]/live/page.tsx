@@ -24,7 +24,8 @@ const homeTeam: Team = {
       name: "LeBron James",
       position: "SF",
       teamId: "1",
-      photo: "https://res.cloudinary.com/ds1lnrvnq/image/upload/v1742947613/dsport/clubs/logo/sn2iq48c9wzocjkqseud.png",
+      photo:
+        "https://res.cloudinary.com/ds1lnrvnq/image/upload/v1742947613/dsport/clubs/logo/sn2iq48c9wzocjkqseud.png",
     },
     {
       id: "2",
@@ -32,7 +33,8 @@ const homeTeam: Team = {
       name: "Anthony Davis",
       position: "PF",
       teamId: "1",
-      photo: "https://res.cloudinary.com/ds1lnrvnq/image/upload/v1742947613/dsport/clubs/logo/sn2iq48c9wzocjkqseud.png",
+      photo:
+        "https://res.cloudinary.com/ds1lnrvnq/image/upload/v1742947613/dsport/clubs/logo/sn2iq48c9wzocjkqseud.png",
     },
     // ... more players
   ],
@@ -52,7 +54,8 @@ const awayTeam: Team = {
       name: "Jayson Tatum",
       position: "SF",
       teamId: "2",
-      photo: "https://res.cloudinary.com/ds1lnrvnq/image/upload/v1742947613/dsport/clubs/logo/sn2iq48c9wzocjkqseud.png",
+      photo:
+        "https://res.cloudinary.com/ds1lnrvnq/image/upload/v1742947613/dsport/clubs/logo/sn2iq48c9wzocjkqseud.png",
     },
     // ... more players
   ],
@@ -78,6 +81,7 @@ export default function LiveGamePage() {
     pauseTimer,
     resetTimer,
     nextQuarter,
+    handleTimeAdjust,
   } = useGameTimer(gameState, setGameState);
 
   const {
@@ -102,7 +106,7 @@ export default function LiveGamePage() {
   } = useGameEvents(gameState, setGameState, seconds);
 
   const togglePossession = () => {
-    setGameState(prev => ({
+    setGameState((prev) => ({
       ...prev,
       possession: prev.possession === "HOME" ? "AWAY" : "HOME",
     }));
@@ -122,13 +126,13 @@ export default function LiveGamePage() {
       if (e.key.toLowerCase() === "f") selectEvent("FOUL_PERSONAL");
       if (e.key.toLowerCase() === "t") selectEvent("TURNOVER");
       if (e.key.toLowerCase() === "s") selectEvent("SUBSTITUTION");
-      
+
       // Control shortcuts
       if (e.key === " ") isRunning ? pauseTimer() : startTimer();
       if (e.key === "p") togglePossession();
       if (e.key === "Enter") {
         if (selectedEvent && selectedPlayer) {
-          if (selectedEvent === 'SUBSTITUTION' && !secondaryPlayer) return;
+          if (selectedEvent === "SUBSTITUTION" && !secondaryPlayer) return;
           if (hasFoul && !foulPlayer) return;
           confirmEvent();
         }
@@ -138,7 +142,14 @@ export default function LiveGamePage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedEvent, selectedPlayer, isRunning, secondaryPlayer, hasFoul, foulPlayer]);
+  }, [
+    selectedEvent,
+    selectedPlayer,
+    isRunning,
+    secondaryPlayer,
+    hasFoul,
+    foulPlayer,
+  ]);
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -163,6 +174,7 @@ export default function LiveGamePage() {
         onReset={resetTimer}
         onNextQuarter={nextQuarter}
         onTogglePossession={togglePossession}
+        onTimeAdjust={handleTimeAdjust}
       />
 
       <main className="flex flex-col lg:flex-row flex-1 p-2 md:p-4 gap-3 max-w-7xl mx-auto w-full">

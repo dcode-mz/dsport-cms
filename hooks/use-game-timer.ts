@@ -60,19 +60,24 @@ export function useGameTimer(
 
   const nextQuarter = () => {
     const newQuarter = gameState.currentQuarter + 1;
-    setGameState(prev => ({
+    setGameState((prev) => ({
       ...prev,
       currentQuarter: newQuarter,
-      isGameOver: newQuarter > 4 && prev.homeScore !== prev.awayScore
+      isGameOver: newQuarter > 4 && prev.homeScore !== prev.awayScore,
     }));
     setSeconds(newQuarter <= 4 ? 600 : 300); // 5min para prorrogação
     setIsRunning(false); // Garante que não inicia automaticamente
   };
 
+  const handleTimeAdjust = (minutes: number, seconds: number) => {
+    const totalSeconds = minutes * 60 + seconds;
+    setSeconds(totalSeconds);
+  };
+
   const formatTime = () => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds < 10 ? "0" : ""}${remainingSeconds}`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
   return {
@@ -83,5 +88,6 @@ export function useGameTimer(
     pauseTimer,
     resetTimer,
     nextQuarter,
+    handleTimeAdjust,
   };
 }
