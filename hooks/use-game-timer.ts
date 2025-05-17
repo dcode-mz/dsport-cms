@@ -1,93 +1,60 @@
-import { GameState } from "@/app/types/match-live";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 export function useGameTimer(
-  gameState: GameState,
-  setGameState: React.Dispatch<React.SetStateAction<GameState>>
+  initialGameClockSeconds: number,
+  isGameClockExternallyRunning: boolean,
+  onGameClockTick: (newTime: number) => void,
+  onGamePeriodEnd: () => void
 ) {
-  const [seconds, setSeconds] = useState(
-    gameState.currentQuarter <= 4 ? 600 : 300 // 10min para quartos, 5min para OT
-  );
-  const [isRunning, setIsRunning] = useState(false);
+  const [gameClock, setGameClock] = useState(initialGameClockSeconds);
+  const gameClockIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    setSeconds(gameState.currentQuarter <= 4 ? 600 : 300);
-  }, [gameState.currentQuarter]);
+    setGameClock(initialGameClockSeconds);
+  }, [initialGameClockSeconds]);
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-
-    if (isRunning && seconds > 0) {
-      interval = setInterval(() => {
-        setSeconds((prev) => prev - 1);
-      }, 1000);
-    } else if (seconds === 0 && isRunning) {
-      handlePeriodEnd();
+  const clearGameClockInterval = useCallback(() => {
+    if (gameClockIntervalRef.current) {
+      clearInterval(gameClockIntervalRef.current);
+      gameClockIntervalRef.current = null;
     }
+  }, []);
 
-    return () => clearInterval(interval);
-  }, [isRunning, seconds]);
+  useEffect(() => {
+    if (isGameClockExternallyRunning && gameClock > 0) {
+      clearGameClockInterval();
+      gameClockIntervalRef.current = setInterval(() => {
+        setGameClock((prev) => {
+          const newTime = Math.max(0, prev - 1);
+          onGameClockTick(newTime);
+          if (newTime === 0) {
+            onGamePeriodEnd();
+            clearGameClockInterval();
+          }
+          return newTime;
+        });
+      }, 1000);
+    } else {
+      clearGameClockInterval();
+    }
+    return clearGameClockInterval;
+  }, [
+    isGameClockExternallyRunning,
+    gameClock,
+    onGameClockTick,
+    onGamePeriodEnd,
+    clearGameClockInterval,
+  ]);
 
-  const handlePeriodEnd = () => {
-    setIsRunning(false);
-    const isGameOver =
-      gameState.currentQuarter >= 4 &&
-      (gameState.currentQuarter > 4 ||
-        gameState.homeScore !== gameState.awayScore);
-
-    setGameState((prev) => ({
-      ...prev,
-      isGameOver,
-      winner: isGameOver
-        ? prev.homeScore > prev.awayScore
-          ? "HOME"
-          : "AWAY"
-        : undefined,
-    }));
-  };
-
-  const startTimer = () => {
-    // Não inicia automaticamente em intervalos ou fim de período
-    if (gameState.isGameOver || seconds <= 0) return;
-
-    setIsRunning(true);
-  };
-
-  const pauseTimer = () => setIsRunning(false);
-
-  const resetTimer = () =>
-    setSeconds(gameState.currentQuarter <= 4 ? 600 : 300);
-
-  const nextQuarter = () => {
-    const newQuarter = gameState.currentQuarter + 1;
-    setGameState((prev) => ({
-      ...prev,
-      currentQuarter: newQuarter,
-      isGameOver: newQuarter > 4 && prev.homeScore !== prev.awayScore,
-    }));
-    setSeconds(newQuarter <= 4 ? 600 : 300); // 5min para prorrogação
-    setIsRunning(false); // Garante que não inicia automaticamente
-  };
-
-  const handleTimeAdjust = (minutes: number, seconds: number) => {
-    const totalSeconds = minutes * 60 + seconds;
-    setSeconds(totalSeconds);
-  };
-
-  const formatTime = () => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  const formatGameTime = (totalSeconds: number): string => {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes.toString().padStart(2, "0")}:${seconds
+      .toString()
+      .padStart(2, "0")}`;
   };
 
   return {
-    seconds,
-    gameTime: formatTime(),
-    isRunning,
-    startTimer,
-    pauseTimer,
-    resetTimer,
-    nextQuarter,
-    handleTimeAdjust,
+    gameClockFormatted: formatGameTime(gameClock),
   };
 }
