@@ -1,16 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   GameState,
   Team,
   Player,
   TeamInGame,
-  EventType,
   GameSettings,
   createInitialPlayer,
-  initialPlayerStats,
-  PossessionArrowDirection,
 } from "@/app/types/match-live";
 import { GameHeader } from "@/components/game-header";
 import { GameTimerControls } from "@/components/game-timer-controls";
@@ -20,20 +17,25 @@ import { TeamPlayersList } from "@/components/team-players-list";
 import { EventTypeCenterPanel } from "@/components/event-type-center-panel";
 import { EventDetailPanel } from "@/components/event-detail-panel";
 import { EventHistoryPanel } from "@/components/event-history-panel";
+import { BoxScorePanel } from "@/components/box-score-panel";
 import { generateId } from "@/lib/utils";
-import { MAIN_EVENT_TYPE_OPTIONS } from "@/app/data/basketball-definitions";
+import {
+  PLAYER_FOULS_EJECTION_PERSONAL,
+  PLAYER_FOULS_EJECTION_TECHNICAL,
+  TEAM_FOULS_BONUS_THRESHOLD,
+} from "@/app/data/basketball-definitions";
 
+// --- Dados Mockados Iniciais ---
 const DEFAULT_GAME_SETTINGS: GameSettings = {
   quarters: 4,
   minutesPerQuarter: 10, // FIBA standard, NBA is 12
   minutesPerOvertime: 5,
-  shotClockDuration: 24,
-  shotClockResetDurationOffensiveRebound: 14,
-  teamFoulsForBonus: 5, // FIBA standard, NBA is 5 (ou 2 nos últimos 2 min)
-  playerFoulsToEject: 5, // FIBA standard
+  teamFoulsForBonus: TEAM_FOULS_BONUS_THRESHOLD,
+  playerFoulsToEject: PLAYER_FOULS_EJECTION_PERSONAL,
+  playerTechFoulsToEject: PLAYER_FOULS_EJECTION_TECHNICAL,
+  coachTechFoulsToEject: 2, // Exemplo
 };
 
-// --- Dados Mockados Iniciais ---
 const mockHomePlayersData: Omit<
   Player,
   "stats" | "isEjected" | "id" | "teamId"
@@ -121,7 +123,7 @@ const initializeTeamInGame = (
     players: fullPlayers,
     onCourt: fullPlayers.slice(0, startersCount).map((p) => p.id),
     bench: fullPlayers.slice(startersCount).map((p) => p.id),
-    timeoutsLeft: 7, // Standard NBA, pode ser ajustado nas settings
+    timeouts: { full_60_left: 5, short_30_left: 2, mandatory_tv_left: 3 }, // Exemplo de valores iniciais
     teamFoulsThisQuarter: 0,
     isInBonus: false,
     coachTechnicalFouls: 0,
@@ -143,15 +145,15 @@ export default function LiveGamePage() {
       awayScore: 0,
       currentQuarter: 1,
       gameClockSeconds: DEFAULT_GAME_SETTINGS.minutesPerQuarter * 60,
-      shotClockSeconds: DEFAULT_GAME_SETTINGS.shotClockDuration,
       possessionTeamId: null,
       possessionArrow: null,
       events: [],
       isGameStarted: false,
       isGameClockRunning: false,
-      isShotClockRunning: false,
       isPausedForEvent: false,
       isGameOver: false,
+      winnerTeamId: null,
+      eventInProgress: undefined, // Inicialmente nenhum evento em progresso
     };
   });
 
@@ -168,6 +170,7 @@ export default function LiveGamePage() {
     confirmCurrentEvent,
     handleFreeThrowResult,
     undoLastEvent,
+    getPlayerById,
   } = useGameEvents(gameState, setGameState);
 
   const { gameClockFormatted } = useGameTimer(
@@ -177,91 +180,113 @@ export default function LiveGamePage() {
       setGameState((prev) => ({ ...prev, gameClockSeconds: newTime })),
     () => {
       // onGamePeriodEnd
-      setGameState((prev) => ({
-        ...prev,
-        isGameClockRunning: false,
-        isShotClockRunning: false,
-      }));
-      // Auto-trigger ADMIN_EVENT for END_QUARTER
-      if (!gameState.isPausedForEvent && selectedEventType !== "ADMIN_EVENT") {
-        // Evita loop se já estiver em evento admin
+      setGameState((prev) => ({ ...prev, isGameClockRunning: false }));
+      if (
+        !gameState.isPausedForEvent &&
+        selectedEventType !== "ADMIN_EVENT" &&
+        !gameState.isGameOver
+      ) {
         startEvent("ADMIN_EVENT");
-        updateEventData({ adminEventDetails: { action: "END_QUARTER" } });
-        // Não avança step, o painel de admin deve mostrar o botão de confirmar
+        // Passa o estado atual para que o evento de fim de período possa usá-lo
+        updateEventData({
+          adminEventDetails: { action: "END_PERIOD" },
+          quarter: gameState.currentQuarter,
+        });
       }
-      console.log("Fim do período!");
     }
   );
 
-  // --- Funções de Controlo do Cronómetro ---
   const handleToggleGameClock = () => {
     if (
       !gameState.isGameStarted ||
       gameState.isGameOver ||
-      gameState.isPausedForEvent
+      gameState.isPausedForEvent ||
+      (pendingFreeThrows.length > 0 &&
+        currentFreeThrowIndex < pendingFreeThrows.length)
     )
       return;
     setGameState((prev) => ({
       ...prev,
       isGameClockRunning: !prev.isGameClockRunning,
-      // Se o jogo começa a correr e o shot clock estava parado (e há posse), inicia o shot clock também
     }));
   };
 
   const handleAdvanceQuarterAdmin = () => {
-    // Usado pelo botão de período
-    startEvent("ADMIN_EVENT");
-    updateEventData({ adminEventDetails: { action: "END_QUARTER" } }); // O hook tratará a lógica de avançar
-    // O painel de detalhes do admin event mostrará o botão de confirmar
+    if (
+      gameState.isPausedForEvent &&
+      selectedEventType === "ADMIN_EVENT" &&
+      eventData.adminEventDetails?.action === "END_PERIOD"
+    ) {
+      confirmCurrentEvent();
+    } else if (!gameState.isPausedForEvent && !gameState.isGameOver) {
+      startEvent("ADMIN_EVENT");
+      updateEventData({
+        adminEventDetails: { action: "END_PERIOD" },
+        quarter: gameState.currentQuarter,
+      });
+    }
   };
 
   const handleAdjustTime = (minutes: number, seconds: number) => {
     if (!gameState.isPausedForEvent) {
+      // Só ajusta se não estiver a meio de um evento que pausa o jogo
       const newTotalSeconds = minutes * 60 + seconds;
       setGameState((prev) => ({
         ...prev,
-        // Define o gameClockSeconds para o novo total. Não é um ajuste relativo, mas um set absoluto.
         gameClockSeconds: Math.max(0, newTotalSeconds),
       }));
     }
   };
 
   const handleTogglePossessionManually = () => {
-    if (!gameState.isPausedForEvent) {
-      // Só permite se não estiver a meio de um evento
+    if (!gameState.isPausedForEvent && !selectedEventType) {
       setGameState((prev) => {
         let newPossessionTeamId = null;
-        if (prev.possessionTeamId === prev.homeTeam.id) {
+        if (prev.possessionTeamId === prev.homeTeam.id)
           newPossessionTeamId = prev.awayTeam.id;
-        } else if (prev.possessionTeamId === prev.awayTeam.id) {
+        else if (prev.possessionTeamId === prev.awayTeam.id)
           newPossessionTeamId = prev.homeTeam.id;
-        } else {
-          // Se a posse era nula, pode-se definir para a equipa da casa por defeito, ou ter um seletor
-          newPossessionTeamId = prev.homeTeam.id;
-        }
-        return {
-          ...prev,
-          possessionTeamId: newPossessionTeamId,
-          // Opcional: resetar o shot clock ao trocar posse manualmente?
-          // shotClockSeconds: prev.settings.shotClockDuration,
-          // isShotClockRunning: !!newPossessionTeamId && prev.isGameClockRunning,
-        };
+        else newPossessionTeamId = prev.homeTeam.id; // Default para casa se era nulo
+
+        alert(
+          `Posse de bola alterada manualmente para: ${
+            newPossessionTeamId === prev.homeTeam.id
+              ? prev.homeTeam.shortName
+              : prev.awayTeam.shortName
+          }`
+        );
+        return { ...prev, possessionTeamId: newPossessionTeamId };
       });
     }
   };
 
-  // --- Seleção de Jogador das Listas ---
   const handlePlayerListSelection = (player: Player, isOnCourt: boolean) => {
-    if (!selectedEventType || !eventData.type || !eventStep) return;
+    if (!selectedEventType || !eventData.type || !eventStep) {
+      console.warn(
+        "Seleção de jogador ignorada: Nenhum evento ou passo ativo."
+      );
+      return;
+    }
+    if (player.isEjected) {
+      alert(
+        `${player.name} está ejetado e não pode ser selecionado para esta ação.`
+      );
+      return;
+    }
 
     const newEventData = { ...eventData };
     let nextStep: string | null = eventStep;
+
+    // A lógica de atribuição específica para cada evento/passo deve ser o mais granular possível aqui
+    // ou delegada para o EventDetailPanel/useGameEvents se a UI do painel de detalhes
+    // tiver inputs específicos para cada papel de jogador.
+    // Esta função é o ponto de entrada da interação do usuário com as listas de jogadores.
 
     switch (selectedEventType) {
       case "JUMP_BALL":
         if (eventStep === "SELECT_JUMP_BALL_PLAYERS") {
           if (
-            player.teamId === gameState.homeTeam.id && // Corrigido aqui
+            player.teamId === gameState.homeTeam.id &&
             !newEventData.jumpBallDetails?.homePlayerId
           ) {
             newEventData.jumpBallDetails = {
@@ -269,7 +294,7 @@ export default function LiveGamePage() {
               homePlayerId: player.id,
             };
           } else if (
-            player.teamId === gameState.awayTeam.id && // Corrigido aqui
+            player.teamId === gameState.awayTeam.id &&
             !newEventData.jumpBallDetails?.awayPlayerId
           ) {
             newEventData.jumpBallDetails = {
@@ -277,81 +302,93 @@ export default function LiveGamePage() {
               awayPlayerId: player.id,
             };
           }
-          // Verificar se ambos foram selecionados para potencialmente avançar o passo automaticamente
-          if (
-            newEventData.jumpBallDetails?.homePlayerId &&
-            newEventData.jumpBallDetails?.awayPlayerId &&
-            nextStep === "SELECT_JUMP_BALL_PLAYERS"
-          ) {
-            // Não avança o passo aqui, deixa o botão "Próximo" no EventDetailPanel fazer isso
-            // ou o usuário clica em outro jogador se quiser mudar a seleção.
-          }
+          // Se ambos selecionados, o EventDetailPanel mostrará o botão "Próximo"
         }
         break;
       case "2POINTS_MADE":
       case "3POINTS_MADE":
       case "2POINTS_MISSED":
       case "3POINTS_MISSED":
-        if (
-          eventStep === "SELECT_PRIMARY_PLAYER" &&
-          player.teamId === gameState.possessionTeamId &&
-          isOnCourt
-        ) {
-          newEventData.primaryPlayerId = player.id;
-          newEventData.primaryTeamId = player.teamId;
-          newEventData.shotDetails = {
-            type: selectedEventType.startsWith("2POINTS")
-              ? "JUMP_SHOT"
-              : "JUMP_SHOT_3PT",
-            isMade: selectedEventType.includes("MADE"),
-            points: selectedEventType.includes("MADE")
-              ? selectedEventType.startsWith("2POINTS")
-                ? 2
-                : 3
-              : 0,
-            isAssisted: false,
-            isBlocked: false,
-          };
-          nextStep = "SELECT_SHOT_DETAILS";
+        if (eventStep === "SELECT_PRIMARY_PLAYER") {
+          if (
+            player.teamId ===
+              (eventData.primaryTeamId || gameState.possessionTeamId) &&
+            isOnCourt
+          ) {
+            newEventData.primaryPlayerId = player.id;
+            newEventData.primaryTeamId = player.teamId;
+            newEventData.shotDetails = {
+              type: selectedEventType.startsWith("2POINTS")
+                ? "JUMP_SHOT"
+                : "JUMP_SHOT_3PT",
+              isMade: selectedEventType.includes("MADE"),
+              points: selectedEventType.includes("MADE")
+                ? selectedEventType.startsWith("2POINTS")
+                  ? 2
+                  : 3
+                : 0,
+              isAssisted: false,
+              isBlocked: false,
+            };
+            nextStep = "SELECT_SHOT_DETAILS";
+          } else {
+            alert("Selecione um jogador em campo da equipa com posse.");
+            return;
+          }
         } else if (
           eventStep === "SELECT_SHOT_DETAILS" &&
-          newEventData.shotDetails &&
-          newEventData.shotDetails.isMade &&
-          !newEventData.shotDetails.assistPlayerId &&
-          player.teamId === newEventData.primaryTeamId &&
-          player.id !== newEventData.primaryPlayerId &&
-          isOnCourt
+          newEventData.shotDetails?.isMade &&
+          !newEventData.shotDetails.assistPlayerId
         ) {
-          newEventData.shotDetails.assistPlayerId = player.id;
-          newEventData.shotDetails.isAssisted = true;
+          // Selecionando assistente
+          if (
+            player.teamId === newEventData.primaryTeamId &&
+            player.id !== newEventData.primaryPlayerId &&
+            isOnCourt
+          ) {
+            newEventData.shotDetails.assistPlayerId = player.id;
+            newEventData.shotDetails.isAssisted = true;
+          } else if (player.id === newEventData.primaryPlayerId) {
+            alert("Jogador não pode assistir a si mesmo.");
+            return;
+          } else {
+            alert(
+              "Assistência deve ser de um jogador da mesma equipa e em campo."
+            );
+            return;
+          }
         } else if (
           eventStep === "SELECT_FOULING_PLAYER_ON_SHOT" &&
-          newEventData.foulDetails &&
-          player.teamId !== newEventData.primaryTeamId &&
+          newEventData.foulDetails
+        ) {
+          // Quem cometeu a falta no arremesso
+          if (player.teamId !== newEventData.primaryTeamId && isOnCourt) {
+            newEventData.foulDetails.committedByPlayerId = player.id;
+            newEventData.foulDetails.committedByTeamId = player.teamId;
+          } else {
+            alert(
+              "Falta deve ser cometida por um jogador da equipa adversária em campo."
+            );
+            return;
+          }
+        } else if (
+          eventStep === "SELECT_REBOUND_PLAYER_AFTER_MISS" &&
           isOnCourt
         ) {
-          newEventData.foulDetails.committedByPlayerId = player.id;
-          newEventData.foulDetails.committedByTeamId = player.teamId;
-        } else if (eventStep === "SELECT_REBOUND_PLAYER" && isOnCourt) {
+          // Quem pegou o ressalto
           newEventData.reboundDetails = {
-            ...newEventData.reboundDetails!,
+            ...newEventData.reboundDetails,
             reboundPlayerId: player.id,
             type:
               player.teamId === newEventData.primaryTeamId
                 ? "OFFENSIVE"
                 : "DEFENSIVE",
-          }; // Auto-define tipo de ressalto
-          // Avança automaticamente após selecionar o ressaltador se o tipo for definido
-          if (
-            newEventData.reboundDetails.reboundPlayerId &&
-            newEventData.reboundDetails.type
-          ) {
-            nextStep = "CONFIRM_MISSED_SHOT_EVENT"; // Ou outro passo relevante
-          }
+          };
         }
         break;
       case "FOUL_PERSONAL":
         if (eventStep === "SELECT_PRIMARY_PLAYER" && isOnCourt) {
+          // Quem cometeu
           newEventData.primaryPlayerId = player.id;
           newEventData.primaryTeamId = player.teamId;
           newEventData.foulDetails = {
@@ -365,49 +402,58 @@ export default function LiveGamePage() {
         } else if (
           eventStep === "SELECT_FOUL_DETAILS" &&
           newEventData.foulDetails &&
-          !newEventData.foulDetails.drawnByPlayerId &&
-          player.id !== newEventData.foulDetails.committedByPlayerId &&
-          isOnCourt
+          !newEventData.foulDetails.drawnByPlayerId
         ) {
-          newEventData.foulDetails.drawnByPlayerId = player.id;
+          // Quem sofreu
+          if (
+            player.id !== newEventData.foulDetails.committedByPlayerId &&
+            isOnCourt
+          ) {
+            newEventData.foulDetails.drawnByPlayerId = player.id;
+          } else if (
+            player.id === newEventData.foulDetails.committedByPlayerId
+          ) {
+            alert("Jogador não pode cometer falta em si mesmo.");
+            return;
+          } else {
+            alert("Selecione um jogador em campo para quem sofreu a falta.");
+            return;
+          }
         }
         break;
       case "FOUL_TECHNICAL":
-        // A lógica para FOUL_TECHNICAL no handlePlayerListSelection pode ser mais complexa
-        // porque o infrator pode não ser um jogador (banco/treinador),
-        // e o cobrador de LL deve ser da equipa oposta.
-        // O EventDetailPanel deve guiar melhor essa seleção.
-        // Aqui, apenas um exemplo se o passo for para selecionar o jogador infrator.
-        if (eventStep === "SELECT_PRIMARY_PLAYER" && isOnCourt) {
-          if (
-            !newEventData.foulDetails?.committedBy ||
-            newEventData.foulDetails?.committedBy === "PLAYER"
-          ) {
-            newEventData.primaryPlayerId = player.id;
-            newEventData.primaryTeamId = player.teamId;
-            newEventData.foulDetails = {
-              ...newEventData.foulDetails,
-              committedBy: "PLAYER",
-              committedByPlayerId: player.id,
-              committedByTeamId: player.teamId,
-              isPersonalFoul: false,
-            };
-            nextStep = "SELECT_FOUL_DETAILS";
-          }
+        if (
+          eventStep === "SELECT_PRIMARY_PLAYER" &&
+          newEventData.foulDetails?.committedBy === "PLAYER" &&
+          isOnCourt
+        ) {
+          // Jogador infrator
+          newEventData.primaryPlayerId = player.id;
+          newEventData.primaryTeamId = player.teamId;
+          newEventData.foulDetails = {
+            ...newEventData.foulDetails,
+            committedByPlayerId: player.id,
+            committedByTeamId: player.teamId,
+          };
+          nextStep = "SELECT_FOUL_DETAILS";
         } else if (
           eventStep === "SELECT_FOUL_DETAILS" &&
           newEventData.foulDetails &&
           !newEventData.foulDetails.freeThrowShooterPlayerId &&
           isOnCourt
         ) {
+          // Quem cobra LL
           const infratorTeamId = newEventData.foulDetails.committedByPlayerId
-            ? _getPlayerById(
-                newEventData.foulDetails.committedByPlayerId,
-                gameState
-              )?.teamId
+            ? getPlayerById(newEventData.foulDetails.committedByPlayerId)
+                ?.teamId
             : newEventData.foulDetails.committedByTeamId;
           if (player.teamId !== infratorTeamId) {
             newEventData.foulDetails.freeThrowShooterPlayerId = player.id;
+          } else {
+            alert(
+              "Cobrador do LL técnico deve ser da equipa adversária ao infrator."
+            );
+            return;
           }
         }
         break;
@@ -429,22 +475,22 @@ export default function LiveGamePage() {
           !player.isEjected &&
           player.teamId === newEventData.substitutionDetails?.teamId
         ) {
-          if (player.id !== newEventData.substitutionDetails?.playerOutId) {
-            // Garante que não é o mesmo jogador
-            newEventData.substitutionDetails = {
-              ...newEventData.substitutionDetails,
-              playerInId: player.id,
-            };
-          } else {
-            // Alertar ou impedir seleção do mesmo jogador
-            console.warn("Jogador a entrar não pode ser o mesmo que saiu.");
+          if (player.id === newEventData.substitutionDetails?.playerOutId) {
+            alert("Jogador a entrar não pode ser o mesmo que saiu.");
+            return;
           }
+          newEventData.substitutionDetails = {
+            ...newEventData.substitutionDetails!,
+            playerInId: player.id,
+          };
+          nextStep = "CONFIRM_SUBSTITUTION_EVENT";
         }
         break;
       case "TURNOVER":
         if (
           eventStep === "SELECT_PRIMARY_PLAYER" &&
-          player.teamId === gameState.possessionTeamId &&
+          player.teamId ===
+            (eventData.primaryTeamId || gameState.possessionTeamId) &&
           isOnCourt
         ) {
           newEventData.primaryPlayerId = player.id;
@@ -457,7 +503,7 @@ export default function LiveGamePage() {
         } else if (
           eventStep === "SELECT_TURNOVER_TYPE" &&
           newEventData.turnoverDetails?.stolenByPlayerId !==
-            undefined /* significa que o switch "foi roubo?" está ativo */ &&
+            undefined /* switch ativo */ &&
           player.teamId !== newEventData.primaryTeamId &&
           isOnCourt
         ) {
@@ -465,248 +511,280 @@ export default function LiveGamePage() {
         }
         break;
       case "STEAL":
-        // A equipa com posse é a que PERDE a bola. O jogador do STEAL é da equipa DEFENSORA.
         if (
           eventStep === "SELECT_PRIMARY_PLAYER" &&
-          player.teamId !== gameState.possessionTeamId &&
+          player.teamId === eventData.primaryTeamId &&
           isOnCourt
         ) {
-          newEventData.primaryPlayerId = player.id; // Jogador que roubou
-          newEventData.primaryTeamId = player.teamId;
+          // Quem roubou
+          newEventData.primaryPlayerId = player.id;
           newEventData.stealDetails = { stolenByPlayerId: player.id };
-          nextStep = "SELECT_PLAYER_WHO_LOST_BALL_ON_STEAL"; // Novo passo para identificar quem perdeu
+          nextStep = "SELECT_PLAYER_WHO_LOST_BALL_ON_STEAL";
+        } else if (
+          eventStep === "SELECT_PLAYER_WHO_LOST_BALL_ON_STEAL" &&
+          newEventData.stealDetails &&
+          player.teamId !== eventData.primaryTeamId &&
+          isOnCourt
+        ) {
+          newEventData.stealDetails.lostPossessionByPlayerId = player.id;
+          nextStep = "CONFIRM_STEAL_EVENT";
         }
         break;
       case "BLOCK":
-        // A equipa com posse é a que TENTA o arremesso. O jogador do BLOCK é da equipa DEFENSORA.
         if (
           eventStep === "SELECT_PRIMARY_PLAYER" &&
-          player.teamId !== gameState.possessionTeamId &&
+          player.teamId === eventData.primaryTeamId &&
           isOnCourt
         ) {
-          newEventData.primaryPlayerId = player.id; // Jogador que bloqueou
-          newEventData.primaryTeamId = player.teamId;
+          // Quem bloqueou
+          newEventData.primaryPlayerId = player.id;
           newEventData.blockDetails = {
             blockPlayerId: player.id,
             shotByPlayerId: "",
-          }; // shotByPlayerId será preenchido no próximo passo
+          };
           nextStep = "SELECT_BLOCKED_PLAYER";
         } else if (
           eventStep === "SELECT_BLOCKED_PLAYER" &&
           newEventData.blockDetails &&
-          player.teamId === gameState.possessionTeamId &&
+          player.teamId !== eventData.primaryTeamId &&
           isOnCourt
         ) {
           newEventData.blockDetails.shotByPlayerId = player.id;
+          nextStep = "CONFIRM_BLOCK_EVENT";
         }
         break;
       case "REBOUND_OFFENSIVE":
       case "REBOUND_DEFENSIVE":
         if (eventStep === "SELECT_PRIMARY_PLAYER" && isOnCourt) {
-          // Qualquer jogador em campo pode pegar o ressalto
-          newEventData.primaryPlayerId = player.id; // Jogador que pegou o ressalto
+          // Quem pegou
+          newEventData.primaryPlayerId = player.id;
           newEventData.primaryTeamId = player.teamId;
           newEventData.reboundDetails = {
             reboundPlayerId: player.id,
-            // O tipo (Ofensivo/Defensivo) é inferido pelo selectedEventType
             type:
               selectedEventType === "REBOUND_OFFENSIVE"
                 ? "OFFENSIVE"
                 : "DEFENSIVE",
           };
-          nextStep = "CONFIRM_REBOUND_EVENT"; // Ou um passo para Tip-in
+          nextStep =
+            selectedEventType === "REBOUND_OFFENSIVE"
+              ? "CHECK_TIP_IN_AFTER_OREB"
+              : "CONFIRM_REBOUND_EVENT";
         }
         break;
       case "DEFLECTION":
         if (
           eventStep === "SELECT_PRIMARY_PLAYER" &&
-          player.teamId !== gameState.possessionTeamId &&
+          player.teamId === eventData.primaryTeamId &&
           isOnCourt
         ) {
           // Quem desviou
           newEventData.primaryPlayerId = player.id;
-          newEventData.primaryTeamId = player.teamId;
           newEventData.deflectionDetails = { deflectedByPlayerId: player.id };
           nextStep = "CONFIRM_DEFLECTION_EVENT";
         }
         break;
+      case "HELD_BALL":
+        if (eventStep === "SELECT_HELD_BALL_PLAYERS") {
+          if (!newEventData.heldBallDetails?.player1Id) {
+            newEventData.heldBallDetails = {
+              ...newEventData.heldBallDetails!,
+              player1Id: player.id,
+            };
+          } else if (
+            !newEventData.heldBallDetails?.player2Id &&
+            player.id !== newEventData.heldBallDetails?.player1Id
+          ) {
+            newEventData.heldBallDetails = {
+              ...newEventData.heldBallDetails!,
+              player2Id: player.id,
+            };
+            // Poderia avançar automaticamente aqui ou deixar o usuário clicar em "Próximo" no painel
+          }
+        }
+        break;
     }
     updateEventData(newEventData);
-    if (nextStep !== eventStep) {
-      advanceEventStep(nextStep);
-    }
-  };
-
-  const _getPlayerById = (
-    playerId: string,
-    state: GameState
-  ): Player | undefined => {
-    return [...state.homeTeam.players, ...state.awayTeam.players].find(
-      (p) => p.id === playerId
-    );
+    if (nextStep !== eventStep) advanceEventStep(nextStep);
   };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignorar atalhos se um input, textarea ou select estiver focado
       const activeEl = document.activeElement;
       if (
         activeEl &&
         (activeEl.tagName === "INPUT" ||
           activeEl.tagName === "TEXTAREA" ||
           activeEl.tagName === "SELECT")
-      ) {
+      )
         return;
-      }
 
-      // Atalho para Iniciar/Pausar Cronómetro
       if (e.key === " ") {
-        // Espaço
         e.preventDefault();
         if (
           gameState.isGameStarted &&
           !gameState.isGameOver &&
           !gameState.isPausedForEvent &&
-          pendingFreeThrows.length === 0
-        ) {
+          pendingFreeThrows.length === 0 &&
+          currentFreeThrowIndex === 0
+        )
           handleToggleGameClock();
-        }
       }
 
-      // Atalhos para Tipos de Evento (se nenhum evento estiver em progresso)
       if (!selectedEventType && !gameState.isPausedForEvent) {
-        if (e.key === "1") {
+        if (e.key === "1" || e.key.toLowerCase() === "q") {
           e.preventDefault();
           startEvent("2POINTS_MADE");
-        }
-        if (e.key === "2") {
+        } else if (e.key === "2" || e.key.toLowerCase() === "w") {
           e.preventDefault();
           startEvent("2POINTS_MISSED");
-        }
-        if (e.key === "3") {
+        } else if (e.key === "3" || e.key.toLowerCase() === "e") {
           e.preventDefault();
           startEvent("3POINTS_MADE");
-        }
-        if (e.key === "4") {
+        } else if (e.key === "4" || e.key.toLowerCase() === "r") {
           e.preventDefault();
           startEvent("3POINTS_MISSED");
-        }
-        if (e.key.toLowerCase() === "f") {
+        } else if (e.key.toLowerCase() === "f") {
           e.preventDefault();
           startEvent("FOUL_PERSONAL");
-        }
-        if (e.key.toLowerCase() === "t") {
+        } else if (e.key.toLowerCase() === "t") {
           e.preventDefault();
           startEvent("TURNOVER");
-        }
-        if (e.key.toLowerCase() === "s") {
+        } else if (e.key.toLowerCase() === "s") {
           e.preventDefault();
           startEvent("SUBSTITUTION");
-        }
-        if (e.key.toLowerCase() === "r") {
+        } else if (e.key.toLowerCase() === "d") {
           e.preventDefault();
           startEvent("REBOUND_DEFENSIVE");
-        } // Exemplo para ressalto
-        // Adicionar mais atalhos conforme necessário
+        } else if (e.key.toLowerCase() === "o") {
+          e.preventDefault();
+          startEvent("REBOUND_OFFENSIVE");
+        } else if (e.key.toLowerCase() === "b") {
+          e.preventDefault();
+          startEvent("BLOCK");
+        } else if (e.key.toLowerCase() === "h") {
+          e.preventDefault();
+          startEvent("HELD_BALL");
+        } else if (e.key.toLowerCase() === "p") {
+          e.preventDefault();
+          handleTogglePossessionManually();
+        } else if (e.key.toLowerCase() === "m") {
+          e.preventDefault();
+          startEvent("TIMEOUT_REQUEST");
+        }
       }
 
-      // Atalhos dentro do painel de detalhes do evento
-      if (
-        selectedEventType ||
-        (eventStep === "AWAITING_FREE_THROW" && pendingFreeThrows.length > 0)
-      ) {
+      if (selectedEventType && eventStep !== "AWAITING_FREE_THROW") {
+        // Não para LL ativos
         if (e.key === "Enter") {
           e.preventDefault();
-          if (eventStep === "AWAITING_FREE_THROW") {
-            // Poderia mapear Enter para "Convertido" e outra tecla para "Falhado"
-            // Por agora, não faz nada aqui, AWAITING_FREE_THROWusa os botões
-          } else if (canConfirmEvent()) {
-            // canConfirmEvent precisa ser acessível ou a lógica replicada
-            confirmCurrentEvent();
-          }
+          if (canConfirmCurrentEventBasedOnStep()) confirmCurrentEvent();
         }
         if (e.key === "Escape") {
           e.preventDefault();
           cancelEvent();
         }
       }
-      // Atalho para Trocar Posse Manualmente
-      if (
-        e.key.toLowerCase() === "p" &&
-        !selectedEventType &&
-        !gameState.isPausedForEvent
-      ) {
-        e.preventDefault();
-        handleTogglePossessionManually();
-      }
 
-      // Atalho para Desfazer (Cuidado com este, pode ser sensível)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
-        // Ctrl+Z ou Cmd+Z
         e.preventDefault();
-        if (gameState.events.length > 0 && !selectedEventType) {
-          // Só desfaz se não estiver a meio de um evento
-          undoLastEvent();
-        }
-      } else if (e.key === "Backspace" && !selectedEventType) {
-        // Backspace (quando não num input)
-        e.preventDefault();
-        if (gameState.events.length > 0) {
-          // Talvez mostrar um diálogo de confirmação antes de desfazer com Backspace
-          // undoLastEvent();
-          console.log("Atalho Backspace para undo: Considerar confirmação.");
-        }
+        if (gameState.events.length > 0 && !selectedEventType) undoLastEvent();
       }
 
-      // Atalhos para Lances Livres
-      if (eventStep === "AWAITING_FREE_THROW" && pendingFreeThrows.length > 0) {
-        if (e.key === "c" || e.key === "C") {
-          // 'C' para Convertido
+      if (
+        eventStep === "AWAITING_FREE_THROW" &&
+        pendingFreeThrows.length > 0 &&
+        currentFreeThrowIndex < pendingFreeThrows.length
+      ) {
+        if (
+          e.key === "c" ||
+          e.key === "C" ||
+          e.key === "m" ||
+          e.key === "M" ||
+          e.key === "1"
+        ) {
           e.preventDefault();
           handleFreeThrowResult(true);
-        }
-        if (e.key === "e" || e.key === "E" || e.key === "x" || e.key === "X") {
-          // 'E' ou 'X' para Errado/Falhado
+        } else if (
+          e.key === "x" ||
+          e.key === "X" ||
+          e.key === "e" ||
+          e.key === "E" ||
+          e.key === "0"
+        ) {
           e.preventDefault();
           handleFreeThrowResult(false);
         }
       }
     };
-
     window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     gameState,
     selectedEventType,
     eventStep,
-    pendingFreeThrows, // Adicionar todas as dependências relevantes
-    startEvent,
-    confirmCurrentEvent,
+    eventData,
+    pendingFreeThrows,
+    currentFreeThrowIndex,
+    /* Adicionar todas as funções do hook e handlers */ startEvent,
+    updateEventData,
+    advanceEventStep,
     cancelEvent,
+    confirmCurrentEvent,
+    handleFreeThrowResult,
     undoLastEvent,
     handleToggleGameClock,
-    handleFreeThrowResult,
     handleTogglePossessionManually,
   ]);
 
-  const canConfirmEvent = (): boolean => {
+  const canConfirmCurrentEventBasedOnStep = (): boolean => {
     if (!selectedEventType || !eventData.type) return false;
     if (eventStep === "AWAITING_FREE_THROW") return false;
-    // Copiar/adaptar a lógica de `canConfirmEvent` do `EventDetailPanel` aqui
-    // Exemplo simplificado:
+    if (eventStep?.startsWith("CONFIRM_")) return true;
+
+    // Validações mais específicas para quando o botão "Confirmar" geral deve estar ativo
+    // Esta lógica precisa ser robusta e cobrir todos os fluxos.
     switch (selectedEventType) {
       case "JUMP_BALL":
-        return !!(
-          eventData.jumpBallDetails?.homePlayerId &&
-          eventData.jumpBallDetails?.awayPlayerId &&
-          eventData.jumpBallDetails?.wonByTeamId
+        return (
+          eventStep === "SELECT_JUMP_BALL_WINNER" &&
+          !!eventData.jumpBallDetails?.wonByTeamId
         );
-      // ... mais validações
+      case "2POINTS_MADE":
+      case "3POINTS_MADE":
+        return (
+          eventStep === "SELECT_SHOT_DETAILS" &&
+          !!eventData.primaryPlayerId &&
+          !!eventData.shotDetails?.type &&
+          (!eventData.foulDetails ||
+            (!!eventData.foulDetails.personalFoulType &&
+              !!eventData.foulDetails.committedByPlayerId &&
+              !!eventData.foulDetails.drawnByPlayerId))
+        );
+      case "2POINTS_MISSED":
+      case "3POINTS_MISSED":
+        return (
+          eventStep === "SELECT_SHOT_DETAILS" &&
+          !!eventData.primaryPlayerId &&
+          !!eventData.shotDetails?.type &&
+          (!eventData.foulDetails ||
+            (!!eventData.foulDetails.personalFoulType &&
+              !!eventData.foulDetails.committedByPlayerId &&
+              !!eventData.foulDetails.drawnByPlayerId)) &&
+          !eventData.reboundDetails?.isTipInAttempt === undefined
+        ); // Se não está a espera de tip-in
+      // ... mais validações para outros eventos e seus passos finais
     }
-    return true;
+    return false; // Default para desabilitado se não houver regra clara
   };
+
+  const showEventDetailPanel =
+    selectedEventType !== null &&
+    !(
+      eventStep === "AWAITING_FREE_THROW" &&
+      pendingFreeThrows.length > 0 &&
+      currentFreeThrowIndex >= pendingFreeThrows.length
+    );
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-200 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
@@ -723,26 +801,26 @@ export default function LiveGamePage() {
         winnerTeamId={gameState.winnerTeamId}
         gameSettings={gameState.settings}
       />
-
       <GameTimerControls
         isGameClockRunning={gameState.isGameClockRunning}
         onToggleGameClock={handleToggleGameClock}
         onAdvanceQuarter={handleAdvanceQuarterAdmin}
-        onAdjustTime={handleAdjustTime} // Passa a nova função de ajuste
-        onTogglePossessionManually={handleTogglePossessionManually} // Passa a função de troca de posse
+        onAdjustTime={handleAdjustTime}
+        onTogglePossessionManually={handleTogglePossessionManually}
         canManuallyStartStop={
           gameState.isGameStarted &&
           !gameState.isGameOver &&
           !gameState.isPausedForEvent &&
-          pendingFreeThrows.length === 0
+          !(
+            pendingFreeThrows.length > 0 &&
+            currentFreeThrowIndex < pendingFreeThrows.length
+          )
         }
         currentPossessionTeamId={gameState.possessionTeamId}
         homeTeamShortName={gameState.homeTeam.shortName}
         awayTeamShortName={gameState.awayTeam.shortName}
       />
-
       <main className="flex flex-row flex-1 p-1.5 md:p-2 gap-1.5 md:gap-2 w-full max-w-full overflow-hidden">
-        {/* Coluna Esquerda - Jogadores Casa */}
         <div className="w-1/4 lg:w-1/5 xl:w-1/4 flex-shrink-0">
           <TeamPlayersList
             team={gameState.homeTeam}
@@ -750,38 +828,31 @@ export default function LiveGamePage() {
             selectedPlayerForEventId={
               eventData.primaryPlayerId ||
               eventData.secondaryPlayerId ||
-              eventData.jumpBallDetails?.homePlayerId || // Específico para Salto Inicial
+              eventData.jumpBallDetails?.homePlayerId ||
               eventData.substitutionDetails?.playerOutId ||
               eventData.substitutionDetails?.playerInId
             }
             title="Casa"
             disabledInteraction={
-              !selectedEventType || // Desabilitado se nenhum evento selecionado
+              !selectedEventType || // Desabilitado se nenhum evento principal selecionado
               (eventStep === "AWAITING_FREE_THROW" &&
-                pendingFreeThrows.length > 0) || // Desabilitado durante Lances Livres
-              selectedEventType === "TIMEOUT_REQUEST" ||
-              selectedEventType === "ADMIN_EVENT" // Eventos que não precisam de seleção de jogador aqui
+                pendingFreeThrows.length > 0 &&
+                currentFreeThrowIndex < pendingFreeThrows.length) || // Desabilitado durante LLs ativos
+              // Para eventos que não usam seleção de jogador das listas laterais neste passo específico
+              (["TIMEOUT_REQUEST", "ADMIN_EVENT"].includes(
+                selectedEventType!
+              ) &&
+                !eventStep?.toUpperCase().includes("PLAYER") &&
+                !eventStep?.toUpperCase().includes("TEAM_FOR_TIMEOUT")) ||
+              (selectedEventType === "HELD_BALL" &&
+                eventStep !== "SELECT_HELD_BALL_PLAYERS")
             }
             showSubOutIconPlayerId={eventData.substitutionDetails?.playerOutId}
             showSubInIconPlayerId={eventData.substitutionDetails?.playerInId}
           />
         </div>
-
-        {/* Coluna Central - Conteúdo Dinâmico */}
         <div className="flex-1 min-w-0">
-          {!selectedEventType ||
-          (eventStep === "AWAITING_FREE_THROW" &&
-            pendingFreeThrows.length ===
-              0) /* Se acabou os LLS, volta ao painel de eventos */ ? (
-            <EventTypeCenterPanel
-              onSelectEvent={startEvent}
-              isGameStarted={gameState.isGameStarted}
-              hasPendingFreeThrows={
-                pendingFreeThrows.length > 0 &&
-                eventStep === "AWAITING_FREE_THROW"
-              }
-            />
-          ) : (
+          {showEventDetailPanel ? ( // Usa a condição calculada
             <EventDetailPanel
               gameState={gameState}
               selectedEventType={selectedEventType!}
@@ -791,15 +862,23 @@ export default function LiveGamePage() {
               currentFreeThrowIndex={currentFreeThrowIndex}
               onUpdateEventData={updateEventData}
               onAdvanceStep={advanceEventStep}
-              onPlayerSelectedForRole={() => {}} // A seleção é tratada em handlePlayerListSelection
               onConfirm={confirmCurrentEvent}
               onCancel={cancelEvent}
               onFreeThrowAttemptResult={handleFreeThrowResult}
             />
+          ) : (
+            <EventTypeCenterPanel
+              onSelectEvent={startEvent}
+              isGameStarted={gameState.isGameStarted}
+              // Passa a informação se há LLs ativos para que o painel possa mostrar uma mensagem ou opções limitadas
+              hasPendingFreeThrows={
+                pendingFreeThrows.length > 0 &&
+                eventStep === "AWAITING_FREE_THROW" &&
+                currentFreeThrowIndex < pendingFreeThrows.length
+              }
+            />
           )}
         </div>
-
-        {/* Coluna Direita - Jogadores Visitante */}
         <div className="w-1/4 lg:w-1/5 xl:w-1/4 flex-shrink-0">
           <TeamPlayersList
             team={gameState.awayTeam}
@@ -807,7 +886,7 @@ export default function LiveGamePage() {
             selectedPlayerForEventId={
               eventData.primaryPlayerId ||
               eventData.secondaryPlayerId ||
-              eventData.jumpBallDetails?.awayPlayerId || // Específico para Salto Inicial
+              eventData.jumpBallDetails?.awayPlayerId ||
               eventData.substitutionDetails?.playerOutId ||
               eventData.substitutionDetails?.playerInId
             }
@@ -815,21 +894,28 @@ export default function LiveGamePage() {
             disabledInteraction={
               !selectedEventType ||
               (eventStep === "AWAITING_FREE_THROW" &&
-                pendingFreeThrows.length > 0) ||
-              selectedEventType === "TIMEOUT_REQUEST" ||
-              selectedEventType === "ADMIN_EVENT"
+                pendingFreeThrows.length > 0 &&
+                currentFreeThrowIndex < pendingFreeThrows.length) ||
+              (["TIMEOUT_REQUEST", "ADMIN_EVENT"].includes(
+                selectedEventType!
+              ) &&
+                !eventStep?.toUpperCase().includes("PLAYER") &&
+                !eventStep?.toUpperCase().includes("TEAM_FOR_TIMEOUT")) ||
+              (selectedEventType === "HELD_BALL" &&
+                eventStep !== "SELECT_HELD_BALL_PLAYERS")
             }
             showSubOutIconPlayerId={eventData.substitutionDetails?.playerOutId}
             showSubInIconPlayerId={eventData.substitutionDetails?.playerInId}
           />
         </div>
       </main>
-      <div className="p-1.5 md:p-2">
+      <div className="p-1.5 md:p-2 grid grid-cols-1 xl:grid-cols-2 gap-2">
         <EventHistoryPanel
           lastEvents={gameState.events}
           onUndo={undoLastEvent}
           teams={[gameState.homeTeam, gameState.awayTeam]}
         />
+        <BoxScorePanel gameState={gameState} />
       </div>
     </div>
   );

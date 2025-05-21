@@ -4,7 +4,8 @@ import {
   TechnicalFoulType,
   TurnoverType,
   EventTypeOption,
-} from "@/app/types/match-live";
+  GameEvent,
+} from "@/app/types/match-live"; // Adicionado GameEvent
 
 export const SHOT_TYPES_2PT: { value: AllShotTypes; label: string }[] = [
   { value: "JUMP_SHOT", label: "Jump Shot" },
@@ -17,8 +18,8 @@ export const SHOT_TYPES_2PT: { value: AllShotTypes; label: string }[] = [
   { value: "FLOATING_JUMP_SHOT", label: "Floating Jump Shot" },
   { value: "DUNK", label: "Dunk" },
   { value: "ALLEY_OOP", label: "Alley Oop" },
-  { value: "TIP_IN_LAYUP", label: "Tip-In Layup" }, // Adicionado para resultado de ressalto
-  { value: "TIP_IN_DUNK", label: "Tip-In Dunk" }, // Adicionado
+  { value: "TIP_IN_LAYUP", label: "Tip-In Layup" },
+  { value: "TIP_IN_DUNK", label: "Tip-In Dunk" },
 ];
 
 export const SHOT_TYPES_3PT: { value: AllShotTypes; label: string }[] = [
@@ -48,8 +49,8 @@ export const PERSONAL_FOUL_TYPES: {
     isOffensive: true,
     canResultInShootingFoul: false,
   },
-  { value: "DOUBLE", label: "Dupla Falta", canResultInShootingFoul: false }, // Lógica especial de posse
-  { value: "LOOSE_BALL", label: "Bola Solta", canResultInShootingFoul: true }, // Pode ou não ser de arremesso
+  { value: "DOUBLE", label: "Dupla Falta", canResultInShootingFoul: false },
+  { value: "LOOSE_BALL", label: "Bola Solta", canResultInShootingFoul: true },
   {
     value: "FLAGRANT_1",
     label: "Flagrante Tipo 1",
@@ -106,6 +107,7 @@ export const TURNOVER_TYPES: { value: TurnoverType; label: string }[] = [
     value: "EIGHT_SECONDS_VIOLATION",
     label: "Violação de 8 Segundos (Meio Campo)",
   },
+  // { value: "SHOT_CLOCK_VIOLATION", label: "Violação Relógio de Posse" }, // Removido
   { value: "TRAVELING", label: "Passos (Travel)" },
   { value: "OFFENSIVE_GOALTENDING", label: "Goaltending Ofensivo" },
   { value: "ILLEGAL_DRIBBLE", label: "Drible Ilegal" },
@@ -153,7 +155,6 @@ export const MAIN_EVENT_TYPE_OPTIONS: EventTypeOption[] = [
     requiresPlayer: true,
     teamScope: "POSSESSION",
   },
-  // FREE_THROW é um resultado de falta, não um evento primário de seleção aqui. Será tratado no fluxo da falta.
   {
     type: "REBOUND_OFFENSIVE",
     label: "Ressalto Of.",
@@ -177,14 +178,14 @@ export const MAIN_EVENT_TYPE_OPTIONS: EventTypeOption[] = [
     category: "Faltas",
     requiresPlayer: true,
     teamScope: "EITHER",
-  }, // Quem cometeu
+  },
   {
     type: "FOUL_TECHNICAL",
     label: "Falta Técnica",
     icon: "🧑‍⚖️",
     category: "Faltas",
     requiresPlayer: false,
-  }, // Infrator pode ser banco/treinador
+  },
   {
     type: "TURNOVER",
     label: "Turnover",
@@ -218,12 +219,19 @@ export const MAIN_EVENT_TYPE_OPTIONS: EventTypeOption[] = [
     teamScope: "DEFENDING",
   },
   {
+    type: "HELD_BALL",
+    label: "Bola Presa",
+    icon: "🤝",
+    category: "Jogo",
+    requiresPlayer: false,
+  },
+  {
     type: "SUBSTITUTION",
     label: "Substituição",
     icon: "🔁",
     category: "Gestão",
     requiresPlayer: false,
-  }, // Seleciona jogadores no painel
+  },
   {
     type: "TIMEOUT_REQUEST",
     label: "Time-out",
@@ -248,15 +256,24 @@ export const MAIN_EVENT_TYPE_OPTIONS: EventTypeOption[] = [
 ];
 
 export const ADMIN_EVENT_ACTIONS: { value: string; label: string }[] = [
-  { value: "START_QUARTER_1", label: "Iniciar 1º Quarto (Após Salto)" },
-  { value: "START_QUARTER", label: "Iniciar Quarto/Prorrogação" },
-  { value: "END_QUARTER", label: "Finalizar Quarto/Prorrogação" },
-  { value: "HALF_TIME", label: "Intervalo (Meio Tempo)" },
+  { value: "START_QUARTER_1", label: "Iniciar 1º Quarto (Após Salto)" }, // Não usado diretamente, Salto Inicial dispara
+  { value: "START_PERIOD", label: "Iniciar Período (Q2/3/4/OT)" },
+  { value: "END_PERIOD", label: "Finalizar Período (Q/OT)" },
+  { value: "HALF_TIME", label: "Intervalo (Meio Tempo)" }, // Pode ser um tipo de END_PERIOD
   { value: "END_GAME", label: "Finalizar Jogo" },
-  { value: "POSSESSION_ARROW_SET", label: "Definir Seta de Posse" },
+  { value: "POSSESSION_ARROW_SET", label: "Definir Seta de Posse Manualmente" },
   { value: "CORRECTION", label: "Correção Manual (Adicionar Nota)" },
 ];
 
-export const TEAM_FoulS_BONUS_THRESHOLD = 5; // Faltas para entrar no bónus (varia por regra, ex: 5 na NBA por quarto)
-export const PLAYER_FOULS_EJECTION_TECHNICAL = 2; // 2 faltas técnicas ejetam
-export const PLAYER_FOULS_EJECTION_PERSONAL = 6; // 6 faltas pessoais ejetam (NBA)
+export const TIMEOUT_TYPES: {
+  value: NonNullable<GameEvent["timeoutDetails"]>["type"];
+  label: string;
+}[] = [
+  { value: "FULL_60", label: "Timeout Completo (60s)" }, // Ajustar durações conforme necessário
+  { value: "SHORT_30", label: "Timeout Curto (30s)" },
+  { value: "MANDATORY_TV", label: "Timeout Obrigatório TV"},
+];
+
+export const TEAM_FOULS_BONUS_THRESHOLD = 5;
+export const PLAYER_FOULS_EJECTION_TECHNICAL = 2;
+export const PLAYER_FOULS_EJECTION_PERSONAL = 5; // Ajustado para 5 (FIBA) ou 6 (NBA)

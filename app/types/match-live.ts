@@ -1,3 +1,4 @@
+// src/app/types/match-live.ts
 import { generateId } from "@/lib/utils";
 
 export interface PlayerStats {
@@ -16,7 +17,7 @@ export interface PlayerStats {
   fieldGoalsAttempted3PT: number;
   freeThrowsMade: number;
   freeThrowsAttempted: number;
-  minutesPlayed?: string; // Formato MM:SS
+  minutesPlayed?: string;
 }
 
 export interface Player {
@@ -42,9 +43,13 @@ export interface Team {
 }
 
 export interface TeamInGame extends Team {
-  onCourt: string[]; // Array de IDs dos jogadores em campo
-  bench: string[]; // Array de IDs dos jogadores no banco
-  timeoutsLeft: number; // Standard: 7 (NBA), pode variar.
+  onCourt: string[];
+  bench: string[];
+  timeouts: {
+    full_60_left: number;
+    short_30_left: number;
+    mandatory_tv_left: number;
+  };
   teamFoulsThisQuarter: number;
   isInBonus: boolean;
   coachTechnicalFouls: number;
@@ -108,10 +113,10 @@ export type EventType =
   | "2POINTS_MISSED"
   | "3POINTS_MADE"
   | "3POINTS_MISSED"
-  | "FREE_THROW_ATTEMPT" // Cada tentativa de LL é um evento
+  | "FREE_THROW_ATTEMPT"
   | "REBOUND_OFFENSIVE"
   | "REBOUND_DEFENSIVE"
-  | "DEAD_BALL_REBOUND" // Dead ball rebound é quando a bola sai após um LL falhado no último ou único LL.
+  | "DEAD_BALL_REBOUND"
   | "FOUL_PERSONAL"
   | "FOUL_TECHNICAL"
   | "TURNOVER"
@@ -122,47 +127,46 @@ export type EventType =
   | "TIMEOUT_REQUEST"
   | "CHALLENGE"
   | "ADMIN_EVENT"
-  | "ASSIST"; // Este é mais um atributo de um evento de cesta
+  | "HELD_BALL"
+  | "ASSIST";
 
 export interface EventTypeOption {
   type: EventType;
   label: string;
   icon: string;
   category: "Início" | "Pontuação" | "Jogo" | "Faltas" | "Gestão";
-  requiresPlayer: boolean; // Se a seleção primária é um jogador
-  teamScope?: "POSSESSION" | "DEFENDING" | "EITHER"; // Qual(is) equipa(s) o jogador pode ser selecionado
+  requiresPlayer: boolean;
+  teamScope?: "POSSESSION" | "DEFENDING" | "EITHER";
 }
 
 export interface FreeThrowLog {
   id: string;
-  attemptNumberInSequence: number; // 1 de 2, 2 de 2, etc.
+  attemptNumberInSequence: number;
   totalAwarded: number;
   shooterPlayerId: string;
-  isMade: boolean;
-  isTechnicalOrFlagrantFT: boolean; // Para regras de posse após FT
-  originalFoulEventId?: string; // ID do evento de falta que gerou os LLs
+  isMade: boolean; // Undefined until result is set
+  isTechnicalOrFlagrantFT: boolean;
+  originalFoulEventId?: string;
 }
 
 export interface GameEvent {
   id: string;
   type: EventType;
-  gameClock: string; // "Q1 08:34.5"
+  gameClock: string;
   realTimestamp: Date;
   quarter: number;
-  description?: string; // Gerado automaticamente ou manual para correções
+  description?: string;
 
-  // IDs de jogadores e equipas
   primaryPlayerId?: string;
   primaryTeamId?: string;
-  secondaryPlayerId?: string; // Ex: assistência, quem sofreu falta, jogador bloqueado
+  secondaryPlayerId?: string;
   secondaryTeamId?: string;
-  tertiaryPlayerId?: string; // Ex: jogador que entrou na substituição
+  tertiaryPlayerId?: string;
 
-  // Detalhes específicos
   shotDetails?: {
     type: AllShotTypes;
     isMade: boolean;
-    points: number; // 0, 1, 2, 3
+    points: number;
     isAssisted: boolean;
     assistPlayerId?: string;
     isBlocked: boolean;
@@ -170,9 +174,9 @@ export interface GameEvent {
   };
   reboundDetails?: {
     type: "OFFENSIVE" | "DEFENSIVE" | "DEAD_BALL_TEAM";
-    reboundPlayerId?: string; // Para OREB/DREB
-    reboundTeamId?: string; // Para Dead Ball Rebound (equipa que ganha posse)
-    isTipInAttempt?: boolean; // Se o ressalto resultou num tip-in
+    reboundPlayerId?: string;
+    reboundTeamId?: string;
+    isTipInAttempt?: boolean;
     tipInShotType?: "TIP_IN_DUNK" | "TIP_IN_LAYUP";
     tipInMade?: boolean;
   };
@@ -180,27 +184,28 @@ export interface GameEvent {
     committedByPlayerId?: string;
     committedByTeamId?: string;
     committedBy: "PLAYER" | "BENCH" | "COACH";
-    drawnByPlayerId?: string; // Quem sofreu
-    type: PersonalFoulType | TechnicalFoulType;
-    isPersonalFoul: boolean; // true para PersonalFoulType, false para TechnicalFoulType
+    drawnByPlayerId?: string;
+    type: PersonalFoulType | TechnicalFoulType; // Union type
+    isPersonalFoul: boolean;
     personalFoulType?: PersonalFoulType;
     technicalFoulType?: TechnicalFoulType;
     resultsInFreeThrows: boolean;
     numberOfFreeThrowsAwarded?: number;
-    freeThrowShooterPlayerId?: string; // Quem vai cobrar
+    freeThrowShooterPlayerId?: string;
     isCharge?: boolean;
-    isUnsportsmanlike?: boolean; // Flagrante 1 ou 2
+    isUnsportsmanlike?: boolean;
     ejectsPlayer?: boolean;
+    ejectsCoach?: boolean; // Adicionado
   };
-  freeThrowDetails?: FreeThrowLog; // Para cada tentativa de LL
+  freeThrowDetails?: FreeThrowLog;
   turnoverDetails?: {
     type: TurnoverType;
     lostByPlayerId: string;
-    stolenByPlayerId?: string; // Se o turnover foi um roubo direto
+    stolenByPlayerId?: string;
   };
   stealDetails?: {
     stolenByPlayerId: string;
-    lostPossessionByPlayerId?: string; // Opcional, se diretamente ligado a um jogador
+    lostPossessionByPlayerId?: string;
   };
   blockDetails?: {
     blockPlayerId: string;
@@ -216,11 +221,11 @@ export interface GameEvent {
   };
   timeoutDetails?: {
     teamId: string;
-    type: "FULL" | "SHORT_30"; // "FULL" (60-100s), "SHORT_30" (NBA 20s) - adaptar
+    type: "FULL_60" | "SHORT_30" | "MANDATORY_TV";
   };
   challengeDetails?: {
     challengingTeamId: string;
-    originalCall?: string; // Descrição da jogada original
+    originalCall?: string;
     result:
       | "SUCCESSFUL_REVERTED"
       | "UNSUCCESSFUL_MAINTAINED"
@@ -229,24 +234,32 @@ export interface GameEvent {
   jumpBallDetails?: {
     homePlayerId: string;
     awayPlayerId: string;
-    wonByTeamId: string; // Equipa que ganhou a posse
-    possessionArrowToTeamId: string; // Para quem aponta a seta após o salto
+    wonByTeamId: string;
+    possessionArrowToTeamId: string;
+  };
+  heldBallDetails?: {
+    player1Id?: string;
+    player2Id?: string;
+    possessionAwardedToTeamId: string;
+    arrowWillPointToTeamId: string;
   };
   adminEventDetails?: {
-    action: string; // "START_QUARTER", "END_GAME", etc.
+    action: string;
     notes?: string;
-    possessionSetToTeamId?: string; // Para definir posse no início do quarto
+    possessionSetToTeamId?: string; // Para definir posse no início do quarto/período
   };
 }
 
 export type PossessionArrowDirection = "HOME" | "AWAY" | null;
 
 export interface GameSettings {
-  quarters: number; // 4
-  minutesPerQuarter: number; // 10 ou 12
-  minutesPerOvertime: number; // 5
-  teamFoulsForBonus: number; // 5
-  playerFoulsToEject: number; // 6 (pessoal), 2 (técnica)
+  quarters: number;
+  minutesPerQuarter: number;
+  minutesPerOvertime: number;
+  teamFoulsForBonus: number;
+  playerFoulsToEject: number; // Pessoal
+  playerTechFoulsToEject: number; // Técnica
+  coachTechFoulsToEject: number; // Técnica Treinador
 }
 
 export interface GameState {
@@ -256,17 +269,16 @@ export interface GameState {
   awayTeam: TeamInGame;
   homeScore: number;
   awayScore: number;
-  currentQuarter: number; // 1-4, 5+ para OT
+  currentQuarter: number;
   gameClockSeconds: number;
   possessionTeamId: string | null;
-  possessionArrow: PossessionArrowDirection; // Para qual equipa aponta a seta
+  possessionArrow: PossessionArrowDirection;
   events: GameEvent[];
   isGameStarted: boolean;
-  isGameClockRunning: boolean; // Para controlar o estado do cronómetro principal
-  isPausedForEvent: boolean; // Se o jogo está pausado para registar um evento complexo (ex: L.L.)
+  isGameClockRunning: boolean;
+  isPausedForEvent: boolean; // Jogo pausado para registar um evento complexo (LLs, etc.)
   isGameOver: boolean;
   winnerTeamId?: string | null;
-  // Estado para o evento em construção
   eventInProgress?: Partial<GameEvent> & {
     step?: string;
     pendingFreeThrows?: FreeThrowLog[];
