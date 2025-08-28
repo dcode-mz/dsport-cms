@@ -12,6 +12,7 @@ import {
   createInitialPlayer,
   Team,
   PlayerStats,
+  ApiPlayer,
 } from "@/app/types/match-live";
 import { generateId } from "@/lib/utils";
 import {
@@ -19,7 +20,41 @@ import {
   PERSONAL_FOUL_TYPES,
 } from "@/app/data/basketball-definitions";
 
-// --- Dados Mockados para UNDO (Manter como na versão anterior) ---
+// --- Funções Helper para localStorage ---
+const saveStateToLocalStorage = (state: GameState) => {
+  try {
+    const serializedState = JSON.stringify(state);
+    localStorage.setItem(`gameState_${state.gameId}`, serializedState);
+  } catch (error) {
+    console.warn("Aviso: Não foi possível salvar o estado do jogo.", error);
+  }
+};
+
+const getOfflineQueue = (matchId: string): any[] => {
+  try {
+    const queue = localStorage.getItem(`offlineQueue_${matchId}`);
+    return queue ? JSON.parse(queue) : [];
+  } catch (error) {
+    console.warn("Aviso: Não foi possível ler a fila offline.", error);
+    return [];
+  }
+};
+
+const addToOfflineQueue = (payload: any, matchId: string) => {
+  try {
+    const queue = getOfflineQueue(matchId);
+    queue.push(payload);
+    localStorage.setItem(`offlineQueue_${matchId}`, JSON.stringify(queue));
+  } catch (error) {
+    console.warn(
+      "Aviso: Não foi possível adicionar evento à fila offline.",
+      error
+    );
+  }
+};
+// --- Fim Funções Helper ---
+
+// Dados Mockados para a função UNDO (necessários para a reconstrução do estado)
 const mockHomePlayersDataForUndo: Omit<
   Player,
   "stats" | "isEjected" | "id" | "teamId"
@@ -92,7 +127,6 @@ const awayTeamBaseForUndo: Omit<Team, "players"> = {
   secondaryColor: "#BA9653",
   coachName: "Joe Mazzulla",
 };
-
 const initializeTeamInGameForUndo = (
   baseTeam: Omit<Team, "players">,
   playersData: Omit<Player, "stats" | "isEjected" | "id" | "teamId">[],
@@ -100,7 +134,14 @@ const initializeTeamInGameForUndo = (
   startersCount: number = 5
 ): TeamInGame => {
   const fullPlayers = playersData.map((p) =>
-    createInitialPlayer(p, baseTeam.id)
+    createInitialPlayer(
+      {
+        id: generateId("player_undo"),
+        name: p.name,
+        preferredPosition: { code: p.position, name: p.position },
+      } as ApiPlayer,
+      baseTeam.id
+    )
   );
   return {
     ...baseTeam,
@@ -114,11 +155,11 @@ const initializeTeamInGameForUndo = (
     benchTechnicalFouls: 0,
   };
 };
-// --- Fim Dados Mockados para UNDO ---
 
 export function useGameEvents(
   currentGameState: GameState,
-  setGameState: React.Dispatch<React.SetStateAction<GameState>>
+  setGameState: React.Dispatch<React.SetStateAction<GameState>>,
+  isOnline: boolean // Recebe o status da conexão
 ) {
   const [selectedEventType, setSelectedEventType] = useState<EventType | null>(
     null
@@ -138,10 +179,6 @@ export function useGameEvents(
   ): string => {
     const minutes = Math.floor(gameClockSeconds / 60);
     const seconds = gameClockSeconds % 60;
-    const qLabel =
-      quarter <= settings.quarters
-        ? `Q${quarter}`
-        : `OT${quarter - settings.quarters}`;
     return `${minutes.toString().padStart(2, "0")}:${seconds
       .toString()
       .padStart(2, "0")}`;
@@ -152,7 +189,7 @@ export function useGameEvents(
       playerId?: string,
       state: GameState = currentGameState
     ): Player | undefined => {
-      if (!playerId) return undefined;
+      if (!playerId || !state) return undefined;
       let player = state.homeTeam.players.find((p) => p.id === playerId);
       if (player) return player;
       player = state.awayTeam.players.find((p) => p.id === playerId);
@@ -166,7 +203,7 @@ export function useGameEvents(
       teamId?: string,
       state: GameState = currentGameState
     ): TeamInGame | undefined => {
-      if (!teamId) return undefined;
+      if (!teamId || !state) return undefined;
       if (state.homeTeam.id === teamId) return state.homeTeam;
       if (state.awayTeam.id === teamId) return state.awayTeam;
       return undefined;
@@ -182,10 +219,11 @@ export function useGameEvents(
     setCurrentFreeThrowIndex(0);
   }, []);
 
-  const startEvent = (type: EventType) => {
+  const startEvent = (type: EventType, typeId?: string) => {
+    if (!currentGameState) return;
     resetEventFlow();
     setSelectedEventType(type);
-    const initialEventData: Partial<GameEvent> = { type };
+    const initialEventData: Partial<GameEvent> = { type, typeId };
     let initialStep: string | null = "SELECT_PRIMARY_PLAYER";
 
     switch (type) {
@@ -255,7 +293,7 @@ export function useGameEvents(
     setEventData(initialEventData);
     setEventStep(initialStep);
     setGameState((prev) => ({
-      ...prev,
+      ...prev!,
       isGameClockRunning: false,
       isPausedForEvent: true,
     }));
@@ -264,21 +302,23 @@ export function useGameEvents(
   const updateEventData = (update: Partial<GameEvent>) => {
     setEventData((prev) => ({ ...prev, ...update }));
   };
+
   const advanceEventStep = (nextStep: string | null) => {
     setEventStep(nextStep);
   };
 
   const cancelEvent = () => {
-    const wasPausedForEvent = currentGameState.isPausedForEvent; // Captura o estado antes do reset
+    if (!currentGameState) return;
+    const wasPausedForEvent = currentGameState.isPausedForEvent;
     resetEventFlow();
     setGameState((prev) => ({
-      ...prev,
+      ...prev!,
       isPausedForEvent: false,
       isGameClockRunning:
-        prev.isGameStarted &&
-        !prev.isGameOver &&
-        prev.gameClockSeconds > 0 &&
-        wasPausedForEvent, // Só retoma se estava pausado PELO evento
+        prev!.isGameStarted &&
+        !prev!.isGameOver &&
+        prev!.gameClockSeconds > 0 &&
+        wasPausedForEvent,
     }));
   };
 
@@ -292,9 +332,7 @@ export function useGameEvents(
   ) => {
     const teamObj = _getTeamById(teamId, newState);
     if (!teamObj) return;
-
     let playerObj: Player | undefined;
-
     if (playerId !== "COACH" && playerId !== "BENCH") {
       const playerIdx = teamObj.players.findIndex(
         (p: Player) => p.id === playerId
@@ -307,7 +345,6 @@ export function useGameEvents(
           );
           return;
         }
-
         if (isPersonal) {
           playerObj.stats.personalFouls += 1;
           if (
@@ -317,10 +354,8 @@ export function useGameEvents(
             playerObj.isEjected = true;
             if (eventBeingProcessed.foulDetails)
               eventBeingProcessed.foulDetails.ejectsPlayer = true;
-            // alert(`${playerObj.name} (${teamObj.shortName}) ejetado por atingir ${newState.settings.playerFoulsToEject} faltas pessoais.`);
           }
         }
-
         const techFoulType = foulType as TechnicalFoulType;
         if (techFoulType === "CLASS_A_PLAYER") {
           playerObj.stats.technicalFouls += 1;
@@ -334,7 +369,6 @@ export function useGameEvents(
             playerObj.isEjected = true;
             if (eventBeingProcessed.foulDetails)
               eventBeingProcessed.foulDetails.ejectsPlayer = true;
-            // alert(`${playerObj.name} (${teamObj.shortName}) ejetado por faltas técnicas/pessoais.`);
           }
         } else if (techFoulType === "CLASS_B_PLAYER") {
           playerObj.stats.technicalFouls += 1;
@@ -345,7 +379,6 @@ export function useGameEvents(
             playerObj.isEjected = true;
             if (eventBeingProcessed.foulDetails)
               eventBeingProcessed.foulDetails.ejectsPlayer = true;
-            // alert(`${playerObj.name} (${teamObj.shortName}) ejetado por faltas técnicas.`);
           }
         }
       }
@@ -356,13 +389,10 @@ export function useGameEvents(
       ) {
         if (eventBeingProcessed.foulDetails)
           eventBeingProcessed.foulDetails.ejectsCoach = true;
-        // alert(`Treinador da equipa ${teamObj.shortName} ejetado por ${newState.settings.coachTechFoulsToEject} faltas técnicas.`);
       }
     } else if (playerId === "BENCH") {
       teamObj.benchTechnicalFouls += 1;
-      // alert(`Falta técnica de banco para ${teamObj.shortName}.`);
     }
-
     const countsForTeamBonus =
       (isPersonal && foulType !== "OFFENSIVE") ||
       (foulType as TechnicalFoulType) === "CLASS_A_PLAYER";
@@ -373,7 +403,6 @@ export function useGameEvents(
         !teamObj.isInBonus
       ) {
         teamObj.isInBonus = true;
-        // alert(`Equipa ${teamObj.shortName} entrou no bónus de faltas!`);
       }
     }
   };
@@ -383,7 +412,6 @@ export function useGameEvents(
     currentState: GameState
   ): GameState => {
     const newState = JSON.parse(JSON.stringify(currentState));
-
     const updatePlayerStatsInState = (
       playerId: string,
       teamId: string,
@@ -412,7 +440,6 @@ export function useGameEvents(
         targetTeamObj.players[playerIndex].stats = newPlayerStats;
       }
     };
-
     switch (event.type) {
       case "JUMP_BALL":
         if (event.jumpBallDetails) {
@@ -563,17 +590,14 @@ export function useGameEvents(
               !!personalFoulType,
               event
             );
-
           const foulTeamObjFromState = committedByTeamId
             ? _getTeamById(committedByTeamId, newState)
             : undefined;
           const shotDataForFoul = event.shotDetails;
-
           let resultsInFTs = false;
           let numFTs = 0;
           const ftShooterId =
             drawnByPlayerId || event.foulDetails.freeThrowShooterPlayerId;
-
           if (personalFoulType === "SHOOTING") {
             resultsInFTs = true;
             numFTs = shotDataForFoul?.type?.includes("3PT") ? 3 : 2;
@@ -603,15 +627,12 @@ export function useGameEvents(
             resultsInFTs = true;
             numFTs = 2;
           }
-
           event.foulDetails.resultsInFreeThrows = resultsInFTs;
           event.foulDetails.numberOfFreeThrowsAwarded = numFTs;
           event.foulDetails.freeThrowShooterPlayerId = ftShooterId;
-
           if (resultsInFTs && numFTs > 0 && ftShooterId) {
             const shooter = _getPlayerById(ftShooterId, newState);
             if (shooter && shooter.isEjected) {
-              // alert(`ERRO: ${shooter.name} (${shooter.number}) está ejetado. Outro jogador deve cobrar os Lances Livres.`);
               event.foulDetails.resultsInFreeThrows = false;
               event.foulDetails.numberOfFreeThrowsAwarded = 0;
               newState.isPausedForEvent = false;
@@ -635,7 +656,6 @@ export function useGameEvents(
               newState.isPausedForEvent = true;
               setEventStep("AWAITING_FREE_THROW");
             } else {
-              //  alert("ERRO: Cobrador de Lance Livre não encontrado ou inválido para o evento de falta.");
               event.foulDetails.resultsInFreeThrows = false;
               event.foulDetails.numberOfFreeThrowsAwarded = 0;
               newState.isPausedForEvent = false;
@@ -686,14 +706,11 @@ export function useGameEvents(
               newState.homeScore += 1;
             else newState.awayScore += 1;
           }
-
           if (attemptNumberInSequence === totalAwarded) {
-            // Último Lance Livre
             setPendingFreeThrows([]);
             setCurrentFreeThrowIndex(0);
             newState.isPausedForEvent = false;
-            setEventStep(null); // Libera o fluxo principal
-
+            setEventStep(null);
             if (isTechnicalOrFlagrantFT) {
               const originalFoul = newState.events.find(
                 (e: GameEvent) =>
@@ -713,28 +730,23 @@ export function useGameEvents(
                   : newState.homeTeam.id);
               newState.possessionTeamId = victimTeamId;
             } else {
-              // Lance livre normal (não técnico/flagrante)
               if (!isMade) {
-                // Último LL normal falhado -> bola viva para ressalto
                 newState.possessionTeamId = null;
-                newState.isGameClockRunning = true; // O jogo continua para o ressalto
+                newState.isGameClockRunning = true;
               } else {
-                // Último LL normal convertido -> posse para a outra equipa
                 newState.possessionTeamId =
                   event.primaryTeamId === newState.homeTeam.id
                     ? newState.awayTeam.id
                     : newState.homeTeam.id;
-                newState.isGameClockRunning = false; // Pausa para reposição
+                newState.isGameClockRunning = false;
               }
             }
-            // Se posse foi definida (não ressalto), cronómetro fica parado para reposição
             if (newState.possessionTeamId) newState.isGameClockRunning = false;
           } else {
-            // Ainda há mais Lances Livres na sequência
             setCurrentFreeThrowIndex((idx) => idx + 1);
-            setEventStep("AWAITING_FREE_THROW"); // Mantém no modo LL
-            newState.isPausedForEvent = true; // Garante que continua pausado
-            newState.isGameClockRunning = false; // Cronómetro parado entre LLs
+            setEventStep("AWAITING_FREE_THROW");
+            newState.isPausedForEvent = true;
+            newState.isGameClockRunning = false;
           }
         }
         break;
@@ -804,7 +816,6 @@ export function useGameEvents(
           if (action === "START_PERIOD") {
             if (newState.currentQuarter >= 1) {
               if (newState.currentQuarter === 1 && newState.isGameStarted) {
-                /* Não faz nada se for Q1 e jogo já começou */
               } else if (
                 newState.currentQuarter > 1 ||
                 !newState.isGameStarted
@@ -837,7 +848,6 @@ export function useGameEvents(
                 newState.homeScore > newState.awayScore
                   ? newState.homeTeam.id
                   : newState.awayTeam.id;
-              // alert(`FIM DE JOGO! ${newState.winnerTeamId === newState.homeTeam.id ? newState.homeTeam.name : newState.awayTeam.name} venceu!`);
             } else if (
               (isLastRegulationQuarter || isOvertime) &&
               newState.homeScore === newState.awayScore
@@ -849,7 +859,6 @@ export function useGameEvents(
                 t.teamFoulsThisQuarter = 0;
                 t.isInBonus = false;
               });
-              // alert(`Fim do Período ${newState.currentQuarter -1}. Prorrogação ${newState.currentQuarter - newState.settings.quarters} a começar!`);
             } else if (newState.currentQuarter < newState.settings.quarters) {
               newState.currentQuarter += 1;
               newState.gameClockSeconds =
@@ -858,11 +867,9 @@ export function useGameEvents(
                 t.teamFoulsThisQuarter = 0;
                 t.isInBonus = false;
               });
-              // alert(`Fim do Período ${newState.currentQuarter -1}. Período ${newState.currentQuarter} a começar!`);
             } else {
               newState.isGameOver = true;
               newState.winnerTeamId = null;
-              // alert("FIM DE JOGO! EMPATE (ou limite de prorrogações atingido).");
             }
           } else if (action === "END_GAME") {
             newState.isGameClockRunning = false;
@@ -872,7 +879,7 @@ export function useGameEvents(
                 ? newState.homeTeam.id
                 : newState.awayScore > newState.homeScore
                 ? newState.awayTeam.id
-                : null; /*alert("Jogo terminado manualmente.");*/
+                : null;
           } else if (
             action === "POSSESSION_ARROW_SET" &&
             event.adminEventDetails.possessionSetToTeamId
@@ -949,7 +956,6 @@ export function useGameEvents(
       case "DEFLECTION":
         break;
     }
-
     [newState.homeTeam, newState.awayTeam].forEach((team) => {
       const newOnCourt: string[] = [];
       let substitutionNeeded = false;
@@ -964,15 +970,14 @@ export function useGameEvents(
       });
       team.onCourt = newOnCourt;
       if (substitutionNeeded) {
-        // alert(`Um ou mais jogadores da equipa ${team.shortName} foram ejetados e removidos de campo. Realize as substituições necessárias.`);
-        newState.isGameClockRunning = false; // Pausa o jogo para forçar substituição
+        newState.isGameClockRunning = false;
       }
     });
     return newState;
   };
 
-  const confirmCurrentEvent = () => {
-    if (!selectedEventType || !eventData.type) {
+  const confirmCurrentEvent = async () => {
+    if (!currentGameState || !selectedEventType || !eventData.type) {
       cancelEvent();
       return;
     }
@@ -988,6 +993,7 @@ export function useGameEvents(
       ...eventData,
     };
 
+    // Validações do evento
     if (finalEvent.type === "SUBSTITUTION" && finalEvent.substitutionDetails) {
       if (
         !finalEvent.substitutionDetails.playerInId ||
@@ -1046,18 +1052,75 @@ export function useGameEvents(
       return;
     }
 
+    const totalMinutesPerPeriod = currentGameState.settings.minutesPerQuarter;
+    const minutesRemaining = Math.floor(currentGameState.gameClockSeconds / 60);
+    const secondsRemaining = currentGameState.gameClockSeconds % 60;
+    const minutesIntoPeriod =
+      totalMinutesPerPeriod -
+      minutesRemaining -
+      (secondsRemaining === 0 && currentGameState.gameClockSeconds > 0 ? 1 : 0);
+    const secondsIntoPeriod = (60 - secondsRemaining) % 60;
+
+    const payload = {
+      matchId: currentGameState.gameId,
+      minute: minutesIntoPeriod,
+      second: secondsIntoPeriod,
+      typeId: finalEvent.typeId,
+      subtypeId: finalEvent.subtypeId,
+      details: finalEvent.description || `Evento: ${finalEvent.type}`,
+      participants: [
+        { playerId: finalEvent.primaryPlayerId, role: "Autor Principal" },
+        { playerId: finalEvent.secondaryPlayerId, role: "Autor Secundário" },
+        ...(finalEvent.shotDetails?.assistPlayerId
+          ? [
+              {
+                playerId: finalEvent.shotDetails.assistPlayerId,
+                role: "Assistência",
+              },
+            ]
+          : []),
+      ].filter((p) => p.playerId),
+    };
+
+    if (isOnline) {
+      try {
+        console.log(
+          "ONLINE: Enviando evento para a API:",
+          JSON.stringify(payload, null, 2)
+        );
+        const response = await fetch("http://localhost:4000/match-events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+          throw new Error(`API respondeu com status: ${response.status}`);
+        }
+        console.log("Evento registrado com sucesso na API.");
+      } catch (error) {
+        console.error(
+          "Erro ao enviar evento (mesmo online), adicionando à fila:",
+          error
+        );
+        addToOfflineQueue(payload, currentGameState.gameId);
+      }
+    } else {
+      console.log(
+        "OFFLINE: Adicionando evento à fila:",
+        JSON.stringify(payload, null, 2)
+      );
+      addToOfflineQueue(payload, currentGameState.gameId);
+    }
+
     const newState = applyEventToState(finalEvent, currentGameState);
     newState.events = [...currentGameState.events, finalEvent];
 
-    // Se o evento não resultou em LLs pendentes (isPausedForEvent será false)
-    // ou se resultou em LLs mas já foram todos processados, então reseta o fluxo do evento.
     const allPendingFTsProcessed =
       pendingFreeThrows.length > 0 &&
       currentFreeThrowIndex >= pendingFreeThrows.length;
 
     if (!newState.isPausedForEvent || allPendingFTsProcessed) {
       resetEventFlow();
-      // Reavalia o estado do cronómetro APÓS o reset do fluxo e a atualização do estado
       newState.isGameClockRunning =
         newState.isGameStarted &&
         !newState.isGameOver &&
@@ -1065,94 +1128,92 @@ export function useGameEvents(
         !newState.isPausedForEvent;
     }
 
-    setGameState(newState); // Atualiza o estado global uma vez
-    resetEventFlow();
-
-    // O alert de evento registado foi removido
+    setGameState(newState);
+    saveStateToLocalStorage(newState); // Salva o novo estado
+    if (!newState.isPausedForEvent) {
+      resetEventFlow();
+    }
   };
 
   const handleFreeThrowResult = (isMade: boolean) => {
     if (
-      pendingFreeThrows.length > 0 &&
-      currentFreeThrowIndex < pendingFreeThrows.length
+      !currentGameState ||
+      pendingFreeThrows.length === 0 ||
+      currentFreeThrowIndex >= pendingFreeThrows.length
     ) {
-      const currentFTLog = pendingFreeThrows[currentFreeThrowIndex];
-      const shooter = _getPlayerById(
-        currentFTLog.shooterPlayerId,
-        currentGameState
-      );
-
-      if (!shooter) {
-        alert("Erro crítico: Cobrador de LL não encontrado no estado do jogo.");
-        return;
-      }
-      if (shooter.isEjected) {
-        alert(
-          `ERRO: ${shooter.name} (${shooter.number}) está ejetado. Outro jogador deve cobrar ou cancele a falta e refaça.`
-        );
-        return;
-      }
-
-      const ftEvent: GameEvent = {
-        id: generateId("evt_ft"),
-        type: "FREE_THROW_ATTEMPT",
-        gameClock: formatClockForEvent(
-          currentGameState.gameClockSeconds,
-          currentGameState.currentQuarter,
-          currentGameState.settings
-        ),
-        realTimestamp: new Date(),
-        quarter: currentGameState.currentQuarter,
-        primaryPlayerId: currentFTLog.shooterPlayerId,
-        primaryTeamId: shooter.teamId,
-        freeThrowDetails: { ...currentFTLog, isMade: isMade },
-        description: `LL ${currentFTLog.attemptNumberInSequence}/${
-          currentFTLog.totalAwarded
-        } por ${shooter.name} (${isMade ? "CONV." : "FALH."})`,
-      };
-
-      const updatedPendingFTs = pendingFreeThrows.map((ft, index) =>
-        index === currentFreeThrowIndex ? { ...ft, isMade: isMade } : ft
-      );
-      setPendingFreeThrows(updatedPendingFTs);
-
-      const tempStateWithFT = applyEventToState(ftEvent, currentGameState);
-      tempStateWithFT.events = [...currentGameState.events, ftEvent];
-
-      // Se foi o último LL e o jogo não está mais pausado para evento, reseta o fluxo.
-      if (
-        currentFTLog.attemptNumberInSequence === currentFTLog.totalAwarded &&
-        !tempStateWithFT.isPausedForEvent
-      ) {
-        resetEventFlow();
-        // Reavalia o estado do cronómetro após o reset do fluxo e a atualização do estado
-        tempStateWithFT.isGameClockRunning =
-          tempStateWithFT.isGameStarted &&
-          !tempStateWithFT.isGameOver &&
-          tempStateWithFT.gameClockSeconds > 0 &&
-          !tempStateWithFT.isPausedForEvent;
-      }
-      setGameState(tempStateWithFT);
+      return;
     }
+    const currentFTLog = pendingFreeThrows[currentFreeThrowIndex];
+    const shooter = _getPlayerById(
+      currentFTLog.shooterPlayerId,
+      currentGameState
+    );
+    if (!shooter) {
+      alert("Erro crítico: Cobrador de LL não encontrado.");
+      return;
+    }
+    if (shooter.isEjected) {
+      alert(`ERRO: ${shooter.name} está ejetado.`);
+      return;
+    }
+
+    const ftEvent: GameEvent = {
+      id: generateId("evt_ft"),
+      type: "FREE_THROW_ATTEMPT",
+      gameClock: formatClockForEvent(
+        currentGameState.gameClockSeconds,
+        currentGameState.currentQuarter,
+        currentGameState.settings
+      ),
+      realTimestamp: new Date(),
+      quarter: currentGameState.currentQuarter,
+      primaryPlayerId: currentFTLog.shooterPlayerId,
+      primaryTeamId: shooter.teamId,
+      freeThrowDetails: { ...currentFTLog, isMade: isMade },
+      description: `LL ${currentFTLog.attemptNumberInSequence}/${
+        currentFTLog.totalAwarded
+      } por ${shooter.name} (${isMade ? "CONV." : "FALH."})`,
+    };
+    const updatedPendingFTs = pendingFreeThrows.map((ft, index) =>
+      index === currentFreeThrowIndex ? { ...ft, isMade: isMade } : ft
+    );
+    setPendingFreeThrows(updatedPendingFTs);
+
+    const tempStateWithFT = applyEventToState(ftEvent, currentGameState);
+    tempStateWithFT.events = [...currentGameState.events, ftEvent];
+
+    if (
+      currentFTLog.attemptNumberInSequence === currentFTLog.totalAwarded &&
+      !tempStateWithFT.isPausedForEvent
+    ) {
+      resetEventFlow();
+      tempStateWithFT.isGameClockRunning =
+        tempStateWithFT.isGameStarted &&
+        !tempStateWithFT.isGameOver &&
+        tempStateWithFT.gameClockSeconds > 0 &&
+        !tempStateWithFT.isPausedForEvent;
+    }
+
+    setGameState(tempStateWithFT);
+    saveStateToLocalStorage(tempStateWithFT); // Salva o novo estado
   };
 
   const undoLastEvent = () => {
     setGameState((prev) => {
-      if (prev.events.length === 0) {
-        /*alert("Nenhum evento para desfazer.");*/ return prev;
+      if (!prev || prev.events.length === 0) {
+        return prev;
       }
       const eventsToReplay = prev.events.slice(0, -1);
-
       const initialHomeTeam = initializeTeamInGameForUndo(
         homeTeamBaseForUndo,
         mockHomePlayersDataForUndo,
         prev.settings
-      ); // Usar os mocks definidos no topo
+      );
       const initialAwayTeam = initializeTeamInGameForUndo(
         awayTeamBaseForUndo,
         mockAwayPlayersDataForUndo,
         prev.settings
-      ); // Usar os mocks definidos no topo
+      );
 
       let revertedState: GameState = {
         gameId: prev.gameId,
@@ -1181,7 +1242,7 @@ export function useGameEvents(
       revertedState.isGameClockRunning = false;
       revertedState.isPausedForEvent = false;
 
-      // alert("Último evento desfeito. Estado do jogo recalculado."); // Removido
+      saveStateToLocalStorage(revertedState); // Salva o estado revertido
       return revertedState;
     });
   };

@@ -1,10 +1,40 @@
-import { EventType, EventTypeOption } from "@/app/types/match-live";
+import { EventType, ApiEventType } from "@/app/types/match-live";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { MAIN_EVENT_TYPE_OPTIONS } from "@/app/data/basketball-definitions";
+// Remova a importação de MAIN_EVENT_TYPE_OPTIONS
 
-const eventCategoriesOrder: EventTypeOption["category"][] = [
+interface EventTypeCenterPanelProps {
+  eventTypes: ApiEventType[]; // Recebe os tipos da API
+  onSelectEvent: (eventType: EventType, typeId: string) => void;
+  isGameStarted: boolean;
+  hasPendingFreeThrows: boolean;
+}
+
+// Mapeamento simples de nome de evento da API para ícone/categoria.
+// Você pode expandir isso conforme necessário.
+const eventVisualMapping: {
+  [key: string]: { icon: string; category: string };
+} = {
+  JUMP_BALL: { icon: "🏀", category: "Início" },
+  "2POINTS_MADE": { icon: "✅", category: "Pontuação" },
+  "2POINTS_MISSED": { icon: "❌", category: "Pontuação" },
+  "3POINTS_MADE": { icon: "🎯", category: "Pontuação" },
+  "3POINTS_MISSED": { icon: "⭕", category: "Pontuação" },
+  FOUL_PERSONAL: { icon: "⚠️", category: "Faltas" },
+  FOUL_TECHNICAL: { icon: "🧑‍⚖️", category: "Faltas" },
+  REBOUND_OFFENSIVE: { icon: "💪", category: "Jogo" },
+  REBOUND_DEFENSIVE: { icon: "🛡️", category: "Jogo" },
+  TURNOVER: { icon: "🔄", category: "Jogo" },
+  STEAL: { icon: "🖐️", category: "Jogo" },
+  BLOCK: { icon: "🧱", category: "Jogo" },
+  SUBSTITUTION: { icon: "🔁", category: "Gestão" },
+  TIMEOUT_REQUEST: { icon: "⏱️", category: "Gestão" },
+  ADMIN_EVENT: { icon: "⚙️", category: "Gestão" },
+  // Adicione outros mapeamentos conforme os nomes da sua API
+};
+
+const eventCategoriesOrder: string[] = [
   "Início",
   "Pontuação",
   "Jogo",
@@ -12,26 +42,20 @@ const eventCategoriesOrder: EventTypeOption["category"][] = [
   "Gestão",
 ];
 
-interface EventTypeCenterPanelProps {
-  onSelectEvent: (eventType: EventType) => void;
-  isGameStarted: boolean;
-  hasPendingFreeThrows: boolean;
-}
-
 export function EventTypeCenterPanel({
+  eventTypes,
   onSelectEvent,
   isGameStarted,
   hasPendingFreeThrows,
 }: EventTypeCenterPanelProps) {
-  const availableEvents = MAIN_EVENT_TYPE_OPTIONS.filter((event) => {
+  const availableEvents = eventTypes.filter((event) => {
     if (hasPendingFreeThrows) {
-      // Se há Lances Livres, só substituição ou timeout (dependendo das regras)
-      return event.type === "SUBSTITUTION" || event.type === "TIMEOUT_REQUEST";
+      return event.name === "SUBSTITUTION" || event.name === "TIMEOUT_REQUEST";
     }
     if (!isGameStarted) {
-      return event.type === "JUMP_BALL" || event.type === "ADMIN_EVENT"; // Antes do jogo, só Salto ou Admin
+      return event.name === "JUMP_BALL" || event.name === "ADMIN_EVENT";
     }
-    return event.type !== "JUMP_BALL"; // Após início, todos menos Salto
+    return event.name !== "JUMP_BALL";
   });
 
   return (
@@ -46,7 +70,8 @@ export function EventTypeCenterPanel({
       <CardContent className="p-1.5 md:p-2 flex-1 overflow-y-auto">
         {eventCategoriesOrder.map((category) => {
           const eventsInCategory = availableEvents.filter(
-            (event) => event.category === category
+            (event) =>
+              (eventVisualMapping[event.name]?.category || "Jogo") === category
           );
           if (eventsInCategory.length === 0) return null;
 
@@ -58,21 +83,23 @@ export function EventTypeCenterPanel({
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-1.5 md:gap-2">
                 {eventsInCategory.map((event) => (
                   <Button
-                    key={event.type}
+                    key={event.id}
                     variant="outline"
-                    onClick={() => onSelectEvent(event.type as EventType)}
+                    onClick={() =>
+                      onSelectEvent(event.name as EventType, event.id)
+                    }
                     className={cn(
                       "h-16 md:h-20 flex flex-col items-center justify-center w-full p-1 text-center",
                       "hover:bg-accent hover:text-accent-foreground",
                       "transition-all duration-150"
                     )}
-                    title={event.label}
+                    title={event.description}
                   >
                     <span className="text-xl md:text-2xl mb-0.5">
-                      {event.icon}
+                      {eventVisualMapping[event.name]?.icon || "❓"}
                     </span>
                     <span className="text-[10px] md:text-xs font-medium leading-tight">
-                      {event.label}
+                      {event.description}
                     </span>
                   </Button>
                 ))}

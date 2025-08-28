@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   GameState,
-  Team,
-  Player,
   TeamInGame,
   GameSettings,
   createInitialPlayer,
+  ApiMatch,
+  ApiTeam,
+  ApiEventType,
+  Player,
 } from "@/app/types/match-live";
 import { GameHeader } from "@/components/game-header";
 import { GameTimerControls } from "@/components/game-timer-controls";
@@ -18,144 +20,250 @@ import { EventTypeCenterPanel } from "@/components/event-type-center-panel";
 import { EventDetailPanel } from "@/components/event-detail-panel";
 import { EventHistoryPanel } from "@/components/event-history-panel";
 import { BoxScorePanel } from "@/components/box-score-panel";
-import { generateId } from "@/lib/utils";
 import {
   PLAYER_FOULS_EJECTION_PERSONAL,
   PLAYER_FOULS_EJECTION_TECHNICAL,
   TEAM_FOULS_BONUS_THRESHOLD,
 } from "@/app/data/basketball-definitions";
 
-// --- Dados Mockados Iniciais ---
+// --- Hook customizado para status da conexão ---
+const useOnlineStatus = () => {
+  const [isOnline, setIsOnline] = useState(true);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    // Tenta obter o estado inicial do navegador
+    if (typeof window !== "undefined" && typeof navigator !== "undefined") {
+      setIsOnline(navigator.onLine);
+    }
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  return { isOnline };
+};
+// --- Fim do Hook ---
+
+// --- Funções Helper para localStorage (específicas da página) ---
+const loadStateFromLocalStorage = (matchId: string): GameState | null => {
+  try {
+    const serializedState = localStorage.getItem(`gameState_${matchId}`);
+    if (serializedState === null) {
+      return null;
+    }
+    return JSON.parse(serializedState);
+  } catch (error) {
+    console.warn("Aviso: Não foi possível carregar o estado do jogo.", error);
+    return null;
+  }
+};
+
+const getOfflineQueue = (matchId: string): any[] => {
+  try {
+    const queue = localStorage.getItem(`offlineQueue_${matchId}`);
+    return queue ? JSON.parse(queue) : [];
+  } catch (error) {
+    console.warn("Aviso: Não foi possível ler a fila offline.", error);
+    return [];
+  }
+};
+
+const updateOfflineQueue = (newQueue: any[], matchId: string) => {
+  try {
+    localStorage.setItem(`offlineQueue_${matchId}`, JSON.stringify(newQueue));
+  } catch (error) {
+    console.warn("Aviso: Não foi possível atualizar a fila offline.", error);
+  }
+};
+// --- Fim Funções Helper ---
+
 const DEFAULT_GAME_SETTINGS: GameSettings = {
   quarters: 4,
-  minutesPerQuarter: 10, // FIBA standard, NBA is 12
+  minutesPerQuarter: 10,
   minutesPerOvertime: 5,
   teamFoulsForBonus: TEAM_FOULS_BONUS_THRESHOLD,
   playerFoulsToEject: PLAYER_FOULS_EJECTION_PERSONAL,
   playerTechFoulsToEject: PLAYER_FOULS_EJECTION_TECHNICAL,
-  coachTechFoulsToEject: 2, // Exemplo
+  coachTechFoulsToEject: 2,
 };
 
-const mockHomePlayersData: Omit<
-  Player,
-  "stats" | "isEjected" | "id" | "teamId"
->[] = [
-  {
-    number: 6,
-    name: "LeBron James",
-    position: "SF",
-    photo:
-      "https://res.cloudinary.com/ds1lnrvnq/image/upload/v1742947613/dsport/clubs/logo/sn2iq48c9wzocjkqseud.png",
-  },
-  {
-    number: 23,
-    name: "Anthony Davis",
-    position: "PF",
-    photo:
-      "https://res.cloudinary.com/ds1lnrvnq/image/upload/v1742947613/dsport/clubs/logo/sn2iq48c9wzocjkqseud.png",
-  },
-  { number: 1, name: "D'Angelo Russell", position: "PG" },
-  { number: 15, name: "Austin Reaves", position: "SG" },
-  { number: 28, name: "Rui Hachimura", position: "PF" },
-  { number: 2, name: "Jarred Vanderbilt", position: "SF" },
-  { number: 10, name: "Max Christie", position: "SG" },
-  { number: 11, name: "Jaxson Hayes", position: "C" },
-  { number: 5, name: "Cam Reddish", position: "SF" },
-  { number: 0, name: "Taurean Prince", position: "SF" },
-];
-const mockAwayPlayersData: Omit<
-  Player,
-  "stats" | "isEjected" | "id" | "teamId"
->[] = [
-  {
-    number: 7,
-    name: "Jayson Tatum",
-    position: "SF",
-    photo:
-      "https://res.cloudinary.com/ds1lnrvnq/image/upload/v1742947613/dsport/clubs/logo/sn2iq48c9wzocjkqseud.png",
-  },
-  {
-    number: 9,
-    name: "Jaylen Brown",
-    position: "SG",
-    photo:
-      "https://res.cloudinary.com/ds1lnrvnq/image/upload/v1742947613/dsport/clubs/logo/sn2iq48c9wzocjkqseud.png",
-  },
-  { number: 4, name: "Jrue Holiday", position: "PG" },
-  { number: 8, name: "Kristaps Porzingis", position: "C" },
-  { number: 42, name: "Al Horford", position: "C" },
-  { number: 12, name: "Derrick White", position: "PG" },
-  { number: 30, name: "Sam Hauser", position: "SF" },
-  { number: 11, name: "Payton Pritchard", position: "PG" },
-  { number: 13, name: "Luke Kornet", position: "C" },
-  { number: 0, name: "Oshae Brissett", position: "SF" },
-];
-
-const homeTeamBase: Omit<Team, "players"> = {
-  id: "HOME_TEAM_ID",
-  name: "Los Angeles Lakers",
-  shortName: "LAL",
-  logo: "https://res.cloudinary.com/ds1lnrvnq/image/upload/v1742420456/dsport/clubs/logo/gljqlouvtgb9r215j9vt.png",
-  primaryColor: "#552583",
-  secondaryColor: "#FDB927",
-  coachName: "Darvin Ham",
-};
-const awayTeamBase: Omit<Team, "players"> = {
-  id: "AWAY_TEAM_ID",
-  name: "Boston Celtics",
-  shortName: "BOS",
-  logo: "https://res.cloudinary.com/ds1lnrvnq/image/upload/v1742851303/dsport/clubs/logo/nrldhsluaji6gxu0teeu.png",
-  primaryColor: "#007A33",
-  secondaryColor: "#BA9653",
-  coachName: "Joe Mazzulla",
-};
-
-const initializeTeamInGame = (
-  baseTeam: Omit<Team, "players">,
-  playersData: Omit<Player, "stats" | "isEjected" | "id" | "teamId">[],
-  startersCount: number = 5
-): TeamInGame => {
-  const fullPlayers = playersData.map((p) =>
-    createInitialPlayer(p, baseTeam.id)
+const transformApiTeamToTeamInGame = (apiTeam: ApiTeam): TeamInGame => {
+  const players = apiTeam.players.map((p) =>
+    createInitialPlayer(p, apiTeam.id)
   );
   return {
-    ...baseTeam,
-    players: fullPlayers,
-    onCourt: fullPlayers.slice(0, startersCount).map((p) => p.id),
-    bench: fullPlayers.slice(startersCount).map((p) => p.id),
-    timeouts: { full_60_left: 5, short_30_left: 2, mandatory_tv_left: 3 }, // Exemplo de valores iniciais
+    id: apiTeam.id,
+    name: apiTeam.name,
+    shortName: apiTeam.name.substring(0, 3).toUpperCase(),
+    logo: apiTeam.club.logo,
+    primaryColor: "#0d47a1",
+    secondaryColor: "#ffffff",
+    players: players,
+    onCourt: players.slice(0, 5).map((p) => p.id),
+    bench: players.slice(5).map((p) => p.id),
+    timeouts: { full_60_left: 5, short_30_left: 2, mandatory_tv_left: 3 },
     teamFoulsThisQuarter: 0,
     isInBonus: false,
     coachTechnicalFouls: 0,
     benchTechnicalFouls: 0,
   };
 };
-// --- Fim Dados Mockados ---
 
-export default function LiveGamePage() {
-  const [gameState, setGameState] = useState<GameState>(() => {
-    const homeTeam = initializeTeamInGame(homeTeamBase, mockHomePlayersData);
-    const awayTeam = initializeTeamInGame(awayTeamBase, mockAwayPlayersData);
-    return {
-      gameId: generateId("game"),
-      settings: DEFAULT_GAME_SETTINGS,
-      homeTeam,
-      awayTeam,
-      homeScore: 0,
-      awayScore: 0,
-      currentQuarter: 1,
-      gameClockSeconds: DEFAULT_GAME_SETTINGS.minutesPerQuarter * 60,
-      possessionTeamId: null,
-      possessionArrow: null,
-      events: [],
-      isGameStarted: false,
-      isGameClockRunning: false,
-      isPausedForEvent: false,
-      isGameOver: false,
-      winnerTeamId: null,
-      eventInProgress: undefined, // Inicialmente nenhum evento em progresso
+export default function LiveGamePage({ params }: { params: { id: string } }) {
+  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [eventTypes, setEventTypes] = useState<ApiEventType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { isOnline } = useOnlineStatus();
+
+  const sportId = "be7615e4-2a20-4de2-b1b3-93ae70fa4db5";
+
+  // Função de sincronização
+  const syncOfflineEvents = useCallback(async () => {
+    const queue = getOfflineQueue(params.id);
+    if (queue.length === 0) {
+      return;
+    }
+
+    console.log(`Sincronizando ${queue.length} eventos offline...`);
+    alert(
+      `Conexão reestabelecida. A sincronizar ${queue.length} eventos pendentes.`
+    );
+
+    const failedEvents: any[] = [];
+
+    for (const payload of queue) {
+      try {
+        const response = await fetch("http://localhost:4000/match-events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error(`API falhou para o evento ${payload.typeId}`);
+        }
+        console.log("Evento sincronizado com sucesso:", payload);
+      } catch (error) {
+        console.error(
+          "Falha ao sincronizar evento, mantendo na fila:",
+          payload,
+          error
+        );
+        failedEvents.push(payload);
+      }
+    }
+
+    updateOfflineQueue(failedEvents, params.id);
+    if (failedEvents.length === 0) {
+      alert("Todos os eventos pendentes foram sincronizados com sucesso!");
+    } else {
+      alert(
+        `${failedEvents.length} eventos falharam ao sincronizar e permanecerão na fila para a próxima tentativa.`
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    const initializeGame = async () => {
+      setIsLoading(true);
+
+      // 1. Tenta carregar do localStorage primeiro
+      const savedState = loadStateFromLocalStorage(params.id);
+      if (savedState) {
+        console.log("Estado do jogo carregado a partir do localStorage.");
+        setGameState(savedState);
+        // Mesmo com estado salvo, busca os tipos de evento, pois podem mudar
+        try {
+          const eventTypesResponse = await fetch(
+            `http://localhost:4000/match-events/types?sportId=${sportId}`
+          );
+          if (!eventTypesResponse.ok)
+            throw new Error("Falha ao buscar tipos de evento.");
+          const eventTypesData: ApiEventType[] =
+            await eventTypesResponse.json();
+          setEventTypes(eventTypesData);
+        } catch (err) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Erro ao buscar tipos de evento."
+          );
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      // 2. Se não houver estado salvo, busca da API
+      try {
+        const [matchResponse, eventTypesResponse] = await Promise.all([
+          fetch(`http://localhost:4000/match/${params.id}`),
+          fetch(`http://localhost:4000/match-events/types?sportId=${sportId}`),
+        ]);
+
+        if (!matchResponse.ok || !eventTypesResponse.ok) {
+          throw new Error("Falha ao buscar dados do jogo ou tipos de evento.");
+        }
+
+        const matchData: ApiMatch = await matchResponse.json();
+        const eventTypesData: ApiEventType[] = await eventTypesResponse.json();
+
+        setEventTypes(eventTypesData);
+
+        const homeTeam = transformApiTeamToTeamInGame(matchData.homeTeam);
+        const awayTeam = transformApiTeamToTeamInGame(matchData.awayTeam);
+
+        const gameSettings: GameSettings = {
+          ...DEFAULT_GAME_SETTINGS,
+          quarters: matchData.numberPeriods,
+          minutesPerQuarter: matchData.durationPerPeriod,
+        };
+
+        setGameState({
+          gameId: matchData.id,
+          settings: gameSettings,
+          homeTeam,
+          awayTeam,
+          homeScore: 0,
+          awayScore: 0,
+          currentQuarter: 1,
+          gameClockSeconds: gameSettings.minutesPerQuarter * 60,
+          possessionTeamId: null,
+          possessionArrow: null,
+          events: [],
+          isGameStarted: false,
+          isGameClockRunning: false,
+          isPausedForEvent: false,
+          isGameOver: false,
+          winnerTeamId: null,
+          eventInProgress: undefined,
+        });
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Ocorreu um erro desconhecido."
+        );
+      } finally {
+        setIsLoading(false);
+      }
     };
-  });
+
+    initializeGame();
+  }, [sportId]);
+
+  // Efeito para sincronizar quando a conexão volta
+  useEffect(() => {
+    if (isOnline) {
+      syncOfflineEvents();
+    }
+  }, [isOnline, syncOfflineEvents]);
 
   const {
     selectedEventType,
@@ -171,23 +279,30 @@ export default function LiveGamePage() {
     handleFreeThrowResult,
     undoLastEvent,
     getPlayerById,
-  } = useGameEvents(gameState, setGameState);
+  } = useGameEvents(
+    gameState!,
+    setGameState as React.Dispatch<React.SetStateAction<GameState>>,
+    isOnline
+  );
 
   const { gameClockFormatted } = useGameTimer(
-    gameState.gameClockSeconds,
-    gameState.isGameClockRunning,
+    gameState?.gameClockSeconds ?? 0,
+    gameState?.isGameClockRunning ?? false,
     (newTime) =>
-      setGameState((prev) => ({ ...prev, gameClockSeconds: newTime })),
+      setGameState((prev) =>
+        prev ? { ...prev, gameClockSeconds: newTime } : null
+      ),
     () => {
-      // onGamePeriodEnd
-      setGameState((prev) => ({ ...prev, isGameClockRunning: false }));
+      if (!gameState) return;
+      setGameState((prev) =>
+        prev ? { ...prev, isGameClockRunning: false } : null
+      );
       if (
         !gameState.isPausedForEvent &&
         selectedEventType !== "ADMIN_EVENT" &&
         !gameState.isGameOver
       ) {
         startEvent("ADMIN_EVENT");
-        // Passa o estado atual para que o evento de fim de período possa usá-lo
         updateEventData({
           adminEventDetails: { action: "END_PERIOD" },
           quarter: gameState.currentQuarter,
@@ -198,6 +313,7 @@ export default function LiveGamePage() {
 
   const handleToggleGameClock = () => {
     if (
+      !gameState ||
       !gameState.isGameStarted ||
       gameState.isGameOver ||
       gameState.isPausedForEvent ||
@@ -206,12 +322,12 @@ export default function LiveGamePage() {
     )
       return;
     setGameState((prev) => ({
-      ...prev,
-      isGameClockRunning: !prev.isGameClockRunning,
+      ...prev!,
+      isGameClockRunning: !prev!.isGameClockRunning,
     }));
   };
-
   const handleAdvanceQuarterAdmin = () => {
+    if (!gameState) return;
     if (
       gameState.isPausedForEvent &&
       selectedEventType === "ADMIN_EVENT" &&
@@ -226,42 +342,36 @@ export default function LiveGamePage() {
       });
     }
   };
-
   const handleAdjustTime = (minutes: number, seconds: number) => {
-    if (!gameState.isPausedForEvent) {
-      // Só ajusta se não estiver a meio de um evento que pausa o jogo
-      const newTotalSeconds = minutes * 60 + seconds;
-      setGameState((prev) => ({
-        ...prev,
-        gameClockSeconds: Math.max(0, newTotalSeconds),
-      }));
-    }
+    if (!gameState || gameState.isPausedForEvent) return;
+    const newTotalSeconds = minutes * 60 + seconds;
+    setGameState((prev) => ({
+      ...prev!,
+      gameClockSeconds: Math.max(0, newTotalSeconds),
+    }));
   };
-
   const handleTogglePossessionManually = () => {
-    if (!gameState.isPausedForEvent && !selectedEventType) {
-      setGameState((prev) => {
-        let newPossessionTeamId = null;
-        if (prev.possessionTeamId === prev.homeTeam.id)
-          newPossessionTeamId = prev.awayTeam.id;
-        else if (prev.possessionTeamId === prev.awayTeam.id)
-          newPossessionTeamId = prev.homeTeam.id;
-        else newPossessionTeamId = prev.homeTeam.id; // Default para casa se era nulo
-
-        alert(
-          `Posse de bola alterada manualmente para: ${
-            newPossessionTeamId === prev.homeTeam.id
-              ? prev.homeTeam.shortName
-              : prev.awayTeam.shortName
-          }`
-        );
-        return { ...prev, possessionTeamId: newPossessionTeamId };
-      });
-    }
+    if (!gameState || gameState.isPausedForEvent || selectedEventType) return;
+    setGameState((prev) => {
+      if (!prev) return null;
+      let newPossessionTeamId = null;
+      if (prev.possessionTeamId === prev.homeTeam.id)
+        newPossessionTeamId = prev.awayTeam.id;
+      else if (prev.possessionTeamId === prev.awayTeam.id)
+        newPossessionTeamId = prev.homeTeam.id;
+      else newPossessionTeamId = prev.homeTeam.id;
+      alert(
+        `Posse de bola alterada manualmente para: ${
+          newPossessionTeamId === prev.homeTeam.id
+            ? prev.homeTeam.shortName
+            : prev.awayTeam.shortName
+        }`
+      );
+      return { ...prev, possessionTeamId: newPossessionTeamId };
+    });
   };
-
   const handlePlayerListSelection = (player: Player, isOnCourt: boolean) => {
-    if (!selectedEventType || !eventData.type || !eventStep) {
+    if (!gameState || !selectedEventType || !eventData.type || !eventStep) {
       console.warn(
         "Seleção de jogador ignorada: Nenhum evento ou passo ativo."
       );
@@ -273,15 +383,8 @@ export default function LiveGamePage() {
       );
       return;
     }
-
     const newEventData = { ...eventData };
     let nextStep: string | null = eventStep;
-
-    // A lógica de atribuição específica para cada evento/passo deve ser o mais granular possível aqui
-    // ou delegada para o EventDetailPanel/useGameEvents se a UI do painel de detalhes
-    // tiver inputs específicos para cada papel de jogador.
-    // Esta função é o ponto de entrada da interação do usuário com as listas de jogadores.
-
     switch (selectedEventType) {
       case "JUMP_BALL":
         if (eventStep === "SELECT_JUMP_BALL_PLAYERS") {
@@ -302,7 +405,6 @@ export default function LiveGamePage() {
               awayPlayerId: player.id,
             };
           }
-          // Se ambos selecionados, o EventDetailPanel mostrará o botão "Próximo"
         }
         break;
       case "2POINTS_MADE":
@@ -340,7 +442,6 @@ export default function LiveGamePage() {
           newEventData.shotDetails?.isMade &&
           !newEventData.shotDetails.assistPlayerId
         ) {
-          // Selecionando assistente
           if (
             player.teamId === newEventData.primaryTeamId &&
             player.id !== newEventData.primaryPlayerId &&
@@ -361,7 +462,6 @@ export default function LiveGamePage() {
           eventStep === "SELECT_FOULING_PLAYER_ON_SHOT" &&
           newEventData.foulDetails
         ) {
-          // Quem cometeu a falta no arremesso
           if (player.teamId !== newEventData.primaryTeamId && isOnCourt) {
             newEventData.foulDetails.committedByPlayerId = player.id;
             newEventData.foulDetails.committedByTeamId = player.teamId;
@@ -375,7 +475,6 @@ export default function LiveGamePage() {
           eventStep === "SELECT_REBOUND_PLAYER_AFTER_MISS" &&
           isOnCourt
         ) {
-          // Quem pegou o ressalto
           newEventData.reboundDetails = {
             ...newEventData.reboundDetails,
             reboundPlayerId: player.id,
@@ -388,7 +487,6 @@ export default function LiveGamePage() {
         break;
       case "FOUL_PERSONAL":
         if (eventStep === "SELECT_PRIMARY_PLAYER" && isOnCourt) {
-          // Quem cometeu
           newEventData.primaryPlayerId = player.id;
           newEventData.primaryTeamId = player.teamId;
           newEventData.foulDetails = {
@@ -404,7 +502,6 @@ export default function LiveGamePage() {
           newEventData.foulDetails &&
           !newEventData.foulDetails.drawnByPlayerId
         ) {
-          // Quem sofreu
           if (
             player.id !== newEventData.foulDetails.committedByPlayerId &&
             isOnCourt
@@ -427,7 +524,6 @@ export default function LiveGamePage() {
           newEventData.foulDetails?.committedBy === "PLAYER" &&
           isOnCourt
         ) {
-          // Jogador infrator
           newEventData.primaryPlayerId = player.id;
           newEventData.primaryTeamId = player.teamId;
           newEventData.foulDetails = {
@@ -442,7 +538,6 @@ export default function LiveGamePage() {
           !newEventData.foulDetails.freeThrowShooterPlayerId &&
           isOnCourt
         ) {
-          // Quem cobra LL
           const infratorTeamId = newEventData.foulDetails.committedByPlayerId
             ? getPlayerById(newEventData.foulDetails.committedByPlayerId)
                 ?.teamId
@@ -502,8 +597,7 @@ export default function LiveGamePage() {
           nextStep = "SELECT_TURNOVER_TYPE";
         } else if (
           eventStep === "SELECT_TURNOVER_TYPE" &&
-          newEventData.turnoverDetails?.stolenByPlayerId !==
-            undefined /* switch ativo */ &&
+          newEventData.turnoverDetails?.stolenByPlayerId !== undefined &&
           player.teamId !== newEventData.primaryTeamId &&
           isOnCourt
         ) {
@@ -516,7 +610,6 @@ export default function LiveGamePage() {
           player.teamId === eventData.primaryTeamId &&
           isOnCourt
         ) {
-          // Quem roubou
           newEventData.primaryPlayerId = player.id;
           newEventData.stealDetails = { stolenByPlayerId: player.id };
           nextStep = "SELECT_PLAYER_WHO_LOST_BALL_ON_STEAL";
@@ -536,7 +629,6 @@ export default function LiveGamePage() {
           player.teamId === eventData.primaryTeamId &&
           isOnCourt
         ) {
-          // Quem bloqueou
           newEventData.primaryPlayerId = player.id;
           newEventData.blockDetails = {
             blockPlayerId: player.id,
@@ -556,7 +648,6 @@ export default function LiveGamePage() {
       case "REBOUND_OFFENSIVE":
       case "REBOUND_DEFENSIVE":
         if (eventStep === "SELECT_PRIMARY_PLAYER" && isOnCourt) {
-          // Quem pegou
           newEventData.primaryPlayerId = player.id;
           newEventData.primaryTeamId = player.teamId;
           newEventData.reboundDetails = {
@@ -578,7 +669,6 @@ export default function LiveGamePage() {
           player.teamId === eventData.primaryTeamId &&
           isOnCourt
         ) {
-          // Quem desviou
           newEventData.primaryPlayerId = player.id;
           newEventData.deflectionDetails = { deflectedByPlayerId: player.id };
           nextStep = "CONFIRM_DEFLECTION_EVENT";
@@ -599,7 +689,6 @@ export default function LiveGamePage() {
               ...newEventData.heldBallDetails!,
               player2Id: player.id,
             };
-            // Poderia avançar automaticamente aqui ou deixar o usuário clicar em "Próximo" no painel
           }
         }
         break;
@@ -607,9 +696,9 @@ export default function LiveGamePage() {
     updateEventData(newEventData);
     if (nextStep !== eventStep) advanceEventStep(nextStep);
   };
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!gameState) return;
       const activeEl = document.activeElement;
       if (
         activeEl &&
@@ -618,7 +707,6 @@ export default function LiveGamePage() {
           activeEl.tagName === "SELECT")
       )
         return;
-
       if (e.key === " ") {
         e.preventDefault();
         if (
@@ -630,7 +718,6 @@ export default function LiveGamePage() {
         )
           handleToggleGameClock();
       }
-
       if (!selectedEventType && !gameState.isPausedForEvent) {
         if (e.key === "1" || e.key.toLowerCase() === "q") {
           e.preventDefault();
@@ -673,9 +760,7 @@ export default function LiveGamePage() {
           startEvent("TIMEOUT_REQUEST");
         }
       }
-
       if (selectedEventType && eventStep !== "AWAITING_FREE_THROW") {
-        // Não para LL ativos
         if (e.key === "Enter") {
           e.preventDefault();
           if (canConfirmCurrentEventBasedOnStep()) confirmCurrentEvent();
@@ -685,12 +770,10 @@ export default function LiveGamePage() {
           cancelEvent();
         }
       }
-
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (gameState.events.length > 0 && !selectedEventType) undoLastEvent();
       }
-
       if (
         eventStep === "AWAITING_FREE_THROW" &&
         pendingFreeThrows.length > 0 &&
@@ -726,7 +809,7 @@ export default function LiveGamePage() {
     eventData,
     pendingFreeThrows,
     currentFreeThrowIndex,
-    /* Adicionar todas as funções do hook e handlers */ startEvent,
+    startEvent,
     updateEventData,
     advanceEventStep,
     cancelEvent,
@@ -736,14 +819,10 @@ export default function LiveGamePage() {
     handleToggleGameClock,
     handleTogglePossessionManually,
   ]);
-
   const canConfirmCurrentEventBasedOnStep = (): boolean => {
-    if (!selectedEventType || !eventData.type) return false;
+    if (!gameState || !selectedEventType || !eventData.type) return false;
     if (eventStep === "AWAITING_FREE_THROW") return false;
     if (eventStep?.startsWith("CONFIRM_")) return true;
-
-    // Validações mais específicas para quando o botão "Confirmar" geral deve estar ativo
-    // Esta lógica precisa ser robusta e cobrir todos os fluxos.
     switch (selectedEventType) {
       case "JUMP_BALL":
         return (
@@ -772,11 +851,35 @@ export default function LiveGamePage() {
               !!eventData.foulDetails.committedByPlayerId &&
               !!eventData.foulDetails.drawnByPlayerId)) &&
           !eventData.reboundDetails?.isTipInAttempt === undefined
-        ); // Se não está a espera de tip-in
-      // ... mais validações para outros eventos e seus passos finais
+        );
     }
-    return false; // Default para desabilitado se não houver regra clara
+    return false;
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-900 text-white">
+        {" "}
+        A carregar dados do jogo...{" "}
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-900 text-red-500">
+        {" "}
+        Erro ao carregar: {error}{" "}
+      </div>
+    );
+  }
+  if (!gameState) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-900 text-white">
+        {" "}
+        Não foi possível carregar os dados do jogo.{" "}
+      </div>
+    );
+  }
 
   const showEventDetailPanel =
     selectedEventType !== null &&
@@ -788,6 +891,15 @@ export default function LiveGamePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-200 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
+      <div
+        className={`fixed top-0 left-0 w-full p-2 text-center text-white z-50 transition-colors duration-500 ${
+          isOnline ? "bg-green-600" : "bg-red-600"
+        }`}
+      >
+        {isOnline
+          ? "Conectado"
+          : "Offline - Os eventos serão guardados e sincronizados mais tarde."}
+      </div>
       <GameHeader
         homeTeam={gameState.homeTeam}
         awayTeam={gameState.awayTeam}
@@ -820,7 +932,7 @@ export default function LiveGamePage() {
         homeTeamShortName={gameState.homeTeam.shortName}
         awayTeamShortName={gameState.awayTeam.shortName}
       />
-      <main className="flex flex-row flex-1 p-1.5 md:p-2 gap-1.5 md:gap-2 w-full max-w-full overflow-hidden">
+      <main className="flex flex-row flex-1 p-1.5 md:p-2 gap-1.5 md:gap-2 w-full max-w-full overflow-hidden mt-8">
         <div className="w-1/4 lg:w-1/5 xl:w-1/4 flex-shrink-0">
           <TeamPlayersList
             team={gameState.homeTeam}
@@ -834,11 +946,10 @@ export default function LiveGamePage() {
             }
             title="Casa"
             disabledInteraction={
-              !selectedEventType || // Desabilitado se nenhum evento principal selecionado
+              !selectedEventType ||
               (eventStep === "AWAITING_FREE_THROW" &&
                 pendingFreeThrows.length > 0 &&
-                currentFreeThrowIndex < pendingFreeThrows.length) || // Desabilitado durante LLs ativos
-              // Para eventos que não usam seleção de jogador das listas laterais neste passo específico
+                currentFreeThrowIndex < pendingFreeThrows.length) ||
               (["TIMEOUT_REQUEST", "ADMIN_EVENT"].includes(
                 selectedEventType!
               ) &&
@@ -852,7 +963,7 @@ export default function LiveGamePage() {
           />
         </div>
         <div className="flex-1 min-w-0">
-          {showEventDetailPanel ? ( // Usa a condição calculada
+          {showEventDetailPanel ? (
             <EventDetailPanel
               gameState={gameState}
               selectedEventType={selectedEventType!}
@@ -868,9 +979,9 @@ export default function LiveGamePage() {
             />
           ) : (
             <EventTypeCenterPanel
+              eventTypes={eventTypes}
               onSelectEvent={startEvent}
               isGameStarted={gameState.isGameStarted}
-              // Passa a informação se há LLs ativos para que o painel possa mostrar uma mensagem ou opções limitadas
               hasPendingFreeThrows={
                 pendingFreeThrows.length > 0 &&
                 eventStep === "AWAITING_FREE_THROW" &&

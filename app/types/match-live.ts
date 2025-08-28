@@ -1,6 +1,45 @@
 // src/app/types/match-live.ts
 import { generateId } from "@/lib/utils";
 
+// Tipos da API para garantir correspondência
+export interface ApiTeam {
+  id: string;
+  name: string;
+  club: { logo: string };
+  players: ApiPlayer[];
+}
+
+export interface ApiPlayer {
+  id: string;
+  name: string;
+  preferredPosition: {
+    name: string;
+    code: string;
+  };
+  // Adicione outros campos que a API de jogador possa ter
+}
+
+export interface ApiMatch {
+  id: string;
+  homeTeam: ApiTeam;
+  awayTeam: ApiTeam;
+  numberPeriods: number;
+  durationPerPeriod: number;
+  // Adicione outros campos do detalhe da partida
+}
+
+export interface ApiEventType {
+  id: string;
+  name: string;
+  description: string;
+  subtypes: {
+    id: string;
+    name: string;
+    description: string;
+  }[];
+}
+
+// Tipos internos da aplicação (mantidos e adaptados)
 export interface PlayerStats {
   points: number;
   reboundsOffensive: number;
@@ -144,7 +183,7 @@ export interface FreeThrowLog {
   attemptNumberInSequence: number;
   totalAwarded: number;
   shooterPlayerId: string;
-  isMade: boolean; // Undefined until result is set
+  isMade: boolean;
   isTechnicalOrFlagrantFT: boolean;
   originalFoulEventId?: string;
 }
@@ -156,6 +195,8 @@ export interface GameEvent {
   realTimestamp: Date;
   quarter: number;
   description?: string;
+  typeId?: string; // ID do tipo de evento da API
+  subtypeId?: string; // ID do subtipo de evento da API
 
   primaryPlayerId?: string;
   primaryTeamId?: string;
@@ -185,7 +226,7 @@ export interface GameEvent {
     committedByTeamId?: string;
     committedBy: "PLAYER" | "BENCH" | "COACH";
     drawnByPlayerId?: string;
-    type: PersonalFoulType | TechnicalFoulType; // Union type
+    type: PersonalFoulType | TechnicalFoulType;
     isPersonalFoul: boolean;
     personalFoulType?: PersonalFoulType;
     technicalFoulType?: TechnicalFoulType;
@@ -195,7 +236,7 @@ export interface GameEvent {
     isCharge?: boolean;
     isUnsportsmanlike?: boolean;
     ejectsPlayer?: boolean;
-    ejectsCoach?: boolean; // Adicionado
+    ejectsCoach?: boolean;
   };
   freeThrowDetails?: FreeThrowLog;
   turnoverDetails?: {
@@ -246,7 +287,7 @@ export interface GameEvent {
   adminEventDetails?: {
     action: string;
     notes?: string;
-    possessionSetToTeamId?: string; // Para definir posse no início do quarto/período
+    possessionSetToTeamId?: string;
   };
 }
 
@@ -257,9 +298,9 @@ export interface GameSettings {
   minutesPerQuarter: number;
   minutesPerOvertime: number;
   teamFoulsForBonus: number;
-  playerFoulsToEject: number; // Pessoal
-  playerTechFoulsToEject: number; // Técnica
-  coachTechFoulsToEject: number; // Técnica Treinador
+  playerFoulsToEject: number;
+  playerTechFoulsToEject: number;
+  coachTechFoulsToEject: number;
 }
 
 export interface GameState {
@@ -276,7 +317,7 @@ export interface GameState {
   events: GameEvent[];
   isGameStarted: boolean;
   isGameClockRunning: boolean;
-  isPausedForEvent: boolean; // Jogo pausado para registar um evento complexo (LLs, etc.)
+  isPausedForEvent: boolean;
   isGameOver: boolean;
   winnerTeamId?: string | null;
   eventInProgress?: Partial<GameEvent> & {
@@ -304,13 +345,15 @@ export const initialPlayerStats: PlayerStats = {
 };
 
 export function createInitialPlayer(
-  playerData: Omit<Player, "stats" | "isEjected" | "id">,
+  playerData: ApiPlayer, // Modificado para receber o tipo da API
   teamId: string
 ): Player {
   return {
-    id: generateId(`player_${teamId}`),
-    ...playerData,
+    id: playerData.id,
+    name: playerData.name,
     teamId,
+    position: playerData.preferredPosition.code,
+    number: 0, // A API não parece fornecer o número, você pode precisar ajustar isso
     stats: { ...initialPlayerStats },
     isEjected: false,
   };
