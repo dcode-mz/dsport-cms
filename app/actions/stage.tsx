@@ -21,7 +21,7 @@ export async function createSeason(data: {
     throw new Error("Dados inválidos");
   }
 
-  await fetch("http://localhost:4000/season/", {
+  await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/season/`, {
     method: "POST",
     body: JSON.stringify(data),
     headers: {
@@ -33,7 +33,7 @@ export async function createSeason(data: {
 }
 
 export async function deleteStage(data: { id: string }) {
-  await fetch(`http://localhost:4000/stage/${data.id}`, {
+  await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/stage/${data.id}`, {
     method: "DELETE",
   });
 

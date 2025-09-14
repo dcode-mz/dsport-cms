@@ -13,7 +13,7 @@ export async function createReferee(data: z.infer<typeof createRefereeFormSchema
   try {
     createRefereeFormSchema.parse(data);
 
-    await fetch("http://localhost:4000/referee/", {
+    await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/referee/`, {
       method: "POST",
       body: JSON.stringify({
         name: data.name,
@@ -34,7 +34,7 @@ export async function createReferee(data: z.infer<typeof createRefereeFormSchema
 }
 
 export async function deleteReferee(data: { id: string }) {
-  await fetch(`http://localhost:4000/referee/${data.id}`, {
+  await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/referee/${data.id}`, {
     method: "DELETE",
   });
 

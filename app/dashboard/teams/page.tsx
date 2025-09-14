@@ -19,7 +19,7 @@ import CreateTeamDialog from "@/components/create-team-dialog";
 import { AppTable } from "@/components/app-table";
 
 async function TeamPage() {
-  const data = await fetch("http://localhost:4000/team", {
+  const data = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/team`, {
     method: "GET",
     next: {
       tags: ["get-teams"],
@@ -27,7 +27,7 @@ async function TeamPage() {
   });
 
   const characteristicsData = await fetch(
-    "http://localhost:4000/team/characteristics",
+    `${process.env.NEXT_PUBLIC_BASE_URL}/team/characteristics`,
     {
       method: "GET",
       next: {

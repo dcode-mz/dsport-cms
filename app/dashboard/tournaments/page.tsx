@@ -19,7 +19,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 async function TournamentPage() {
-  const data = await fetch("http://localhost:4000/tournament", {
+  const data = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/tournament`, {
     method: "GET",
     next: {
       tags: ["get-tournaments"],

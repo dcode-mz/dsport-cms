@@ -44,7 +44,7 @@ export async function createTournament(
 
     const logoURL = data.logo ? await uploadImage(data.logo) : undefined;
 
-    const response = await fetch("http://localhost:4000/tournament/", {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/tournament/`, {
       method: "POST",
       body: JSON.stringify({
         name: data.name,
@@ -83,7 +83,7 @@ export async function createTournament(
 }
 
 export async function deleteTournament(data: { id: string }) {
-  await fetch(`http://localhost:4000/tournament/${data.id}`, {
+  await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/tournament/${data.id}`, {
     method: "DELETE",
   });
 

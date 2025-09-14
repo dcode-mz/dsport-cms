@@ -224,8 +224,8 @@ MatchesTabProps) {
       const isUpdate = !!currentStage;
       const method = isUpdate ? "PUT" : "POST";
       const url = isUpdate
-        ? `http://localhost:4000/stage/${currentStage.id}`
-        : `http://localhost:4000/stage`;
+        ? `${process.env.NEXT_PUBLIC_BASE_URL}/stage/${currentStage.id}`
+        : `${process.env.NEXT_PUBLIC_BASE_URL}/stage`;
 
       await toast.promise(
         fetch(url, {
@@ -253,7 +253,7 @@ MatchesTabProps) {
   // try {
   //   setIsLoading((prev) => ({ ...prev, deleting: true }));
   //   await toast.promise(
-  //     fetch(`http://localhost:4000/stages/`, {
+  //     fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/stages/`, {
   //       method: "DELETE",
   //     }),
   //     {
@@ -297,7 +297,7 @@ MatchesTabProps) {
       const method = isUpdate ? "PUT" : "POST";
       const url = isUpdate
         ? `/api/tournaments/${tournament.id}/matchdays/${currentMatchday?.matchday.id}`
-        : `http://localhost:4000/matchday`;
+        : `${process.env.NEXT_PUBLIC_BASE_URL}/matchday`;
 
       await toast.promise(
         fetch(url, {
@@ -399,8 +399,8 @@ MatchesTabProps) {
       const isUpdate = !!currentMatch;
       const method = isUpdate ? "PUT" : "POST";
       const url = isUpdate
-        ? `http://localhost:4000/match/${currentMatch.id}`
-        : `http://localhost:4000/match`;
+        ? `${process.env.NEXT_PUBLIC_BASE_URL}/match/${currentMatch.id}`
+        : `${process.env.NEXT_PUBLIC_BASE_URL}/match`;
 
       await toast.promise(
         fetch(url, {

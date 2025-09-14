@@ -142,7 +142,7 @@ export default function LiveGamePage({ params }: { params: { id: string } }) {
 
     for (const payload of queue) {
       try {
-        const response = await fetch("http://localhost:4000/match-events", {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/match-events`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -184,7 +184,7 @@ export default function LiveGamePage({ params }: { params: { id: string } }) {
         // Mesmo com estado salvo, busca os tipos de evento, pois podem mudar
         try {
           const eventTypesResponse = await fetch(
-            `http://localhost:4000/match-events/types?sportId=${sportId}`
+            `${process.env.NEXT_PUBLIC_BASE_URL}/match-events/types?sportId=${sportId}`
           );
           if (!eventTypesResponse.ok)
             throw new Error("Falha ao buscar tipos de evento.");
@@ -205,8 +205,8 @@ export default function LiveGamePage({ params }: { params: { id: string } }) {
       // 2. Se não houver estado salvo, busca da API
       try {
         const [matchResponse, eventTypesResponse] = await Promise.all([
-          fetch(`http://localhost:4000/match/${params.id}`),
-          fetch(`http://localhost:4000/match-events/types?sportId=${sportId}`),
+          fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/match/${params.id}`),
+          fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/match-events/types?sportId=${sportId}`),
         ]);
 
         if (!matchResponse.ok || !eventTypesResponse.ok) {

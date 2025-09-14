@@ -92,7 +92,7 @@ export function TeamsTab({
     setIsLoading((prev) => ({ ...prev, saving: true }));
     try {
       const response = await fetch(
-        `http://localhost:4000/tournament/${tournament.id}/teams`,
+        `${process.env.NEXT_PUBLIC_BASE_URL}/tournament/${tournament.id}/teams`,
         {
           method: "POST",
           headers: {

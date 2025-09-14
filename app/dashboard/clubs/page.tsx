@@ -19,7 +19,7 @@ import { Club } from "@/app/types/club";
 import { AppTable } from "@/components/app-table";
 
 async function ClubPage() {
-  const data = await fetch("http://localhost:4000/club", {
+  const data = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/club`, {
     method: "GET",
     next: {
       tags: ["get-clubs"],

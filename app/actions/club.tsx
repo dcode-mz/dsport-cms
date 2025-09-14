@@ -25,7 +25,7 @@ export async function createClub(data: z.infer<typeof createClubFormSchema>) {
 
     const logoURL = data.logo ? await uploadImage(data.logo) : undefined;
 
-    await fetch("http://localhost:4000/club/", {
+    await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/club/`, {
       method: "POST",
       body: JSON.stringify({
         name: data.name,
@@ -48,7 +48,7 @@ export async function createClub(data: z.infer<typeof createClubFormSchema>) {
 }
 
 export async function deleteClub(data: { id: string }) {
-  await fetch(`http://localhost:4000/club/${data.id}`, {
+  await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/club/${data.id}`, {
     method: "DELETE",
   });
 

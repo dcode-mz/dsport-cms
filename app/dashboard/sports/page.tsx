@@ -18,7 +18,7 @@ import { Sport } from "@/app/types/sport";
 import { AppTable } from "@/components/app-table";
 
 async function SportPage() {
-  const data = await fetch("http://localhost:4000/sports", {
+  const data = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/sports`, {
     method: "GET",
     next: {
       tags: ["get-sports"],

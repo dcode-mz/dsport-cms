@@ -50,11 +50,11 @@ export default async function TournamentPage({
   //   console.log("Match deleted");
   // };
   const { id } = await params;
-  const response = await fetch(`http://localhost:4000/tournament/${id}`);
+  const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/tournament/${id}`);
   const tournament: ResponseBody<Tournament> = await response.json();
 
   const responseTeamCharacteristcs = await fetch(
-    `http://localhost:4000/team/characteristics`
+    `${process.env.NEXT_PUBLIC_BASE_URL}/team/characteristics`
   );
   const { payload }: ResponseBody<TeamCharacteristics> =
     await responseTeamCharacteristcs.json();
@@ -69,20 +69,20 @@ export default async function TournamentPage({
   )?.id;
 
   const responseTeams = await fetch(
-    `http://localhost:4000/team/filters?gender=${genderId}&sport=${sportId}&ageCategory=${categoryId}`
+    `${process.env.NEXT_PUBLIC_BASE_URL}/team/filters?gender=${genderId}&sport=${sportId}&ageCategory=${categoryId}`
   );
 
   const availableTournamentTeams: ResponseBody<
     { id: string; name: string; club: { name: string; logo: string } }[]
   > = await responseTeams.json();
 
-  const responseStageTypes = await fetch(`http://localhost:4000/stage/types`);
+  const responseStageTypes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/stage/types`);
   const stageTypes = await responseStageTypes.json();
 
-  const responseReferees = await fetch(`http://localhost:4000/referee`);
+  const responseReferees = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/referee`);
   const referees = await responseReferees.json();
 
-  const responseVenue = await fetch(`http://localhost:4000/venue`);
+  const responseVenue = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/venue`);
   const venues = await responseVenue.json();
 
   return (

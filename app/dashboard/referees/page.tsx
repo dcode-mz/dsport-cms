@@ -20,7 +20,7 @@ import CreateRefereeDialog from "@/components/create-referee-dialog";
 import { Country } from "@/app/types/country";
 
 async function ClubPage() {
-  const data = await fetch("http://localhost:4000/referee", {
+  const data = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/referee`, {
     method: "GET",
     next: {
       tags: ["get-referees"],
@@ -29,7 +29,7 @@ async function ClubPage() {
 
   const response: ResponseBody<Referee[]> = await data.json();
 
-  const countryData = await fetch("http://localhost:4000/country", {
+  const countryData = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/country`, {
     method: "GET",
     next: {
       tags: ["get-referees"],

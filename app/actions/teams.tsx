@@ -19,7 +19,7 @@ const createTeamFormSchema = z.object({
 export async function createTeam(data: z.infer<typeof createTeamFormSchema>) {
   try {
     createTeamFormSchema.parse(data);
-    await fetch("http://localhost:4000/team/", {
+    await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/team/`, {
       method: "POST",
       body: JSON.stringify({
         customName: data.customName,
@@ -47,7 +47,7 @@ export async function createTeam(data: z.infer<typeof createTeamFormSchema>) {
 }
 
 export async function deleteTeam(data: { id: string }) {
-  await fetch(`http://localhost:4000/team/${data.id}`, {
+  await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/team/${data.id}`, {
     method: "DELETE",
   });
 

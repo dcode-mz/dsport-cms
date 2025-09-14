@@ -14,7 +14,7 @@ import Image from "next/image";
 
 export async function StandingsTab({ tournament }: { tournament: Tournament }) {
   const response = await fetch(
-    `http://localhost:4000/tournament/${tournament.seasons[0].id}/standing`
+    `${process.env.NEXT_PUBLIC_BASE_URL}/tournament/${tournament.seasons[0].id}/standing`
   );
   const data: ResponseBody<LeagueStanding[]> = await response.json();
   const standings = data.payload;

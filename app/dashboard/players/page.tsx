@@ -19,7 +19,7 @@ import { Player, PlayerCharacteristics } from "@/app/types/player";
 import CreatePlayerDialog from "@/components/create-player-dialog";
 
 async function ClubPage() {
-  const data = await fetch("http://localhost:4000/player", {
+  const data = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/player`, {
     method: "GET",
     next: {
       tags: ["get-players"],
@@ -29,7 +29,7 @@ async function ClubPage() {
   const response: ResponseBody<Player[]> = await data.json();
 
   const playerCharacteristicsResponse = await fetch(
-    "http://localhost:4000/player/characteristics"
+    `${process.env.NEXT_PUBLIC_BASE_URL}/player/characteristics`
   );
   const playerCharacteristics: ResponseBody<PlayerCharacteristics> =
     await playerCharacteristicsResponse.json();

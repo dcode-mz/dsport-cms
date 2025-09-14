@@ -32,7 +32,7 @@ export async function createPlayer(data: z.infer<typeof playerFormSchema>) {
 
     const photoUrl = data.photo ? await uploadImage(data.photo) : undefined;
 
-    await fetch("http://localhost:4000/player/", {
+    await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/player/`, {
       method: "POST",
       body: JSON.stringify({
         name: data.name,
@@ -61,7 +61,7 @@ export async function createPlayer(data: z.infer<typeof playerFormSchema>) {
 }
 
 export async function deletePlayer(data: { id: string }) {
-  await fetch(`http://localhost:4000/player/${data.id}`, {
+  await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/player/${data.id}`, {
     method: "DELETE",
   });
 

@@ -19,7 +19,7 @@ import { ResponseBody } from "@/app/types/response-body";
 import CreateSeasonDialog from "@/components/create-season-dialog";
 
 async function SeasonPage() {
-  const data = await fetch("http://localhost:4000/season", {
+  const data = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/season`, {
     method: "GET",
     next: {
       tags: ["get-season"],

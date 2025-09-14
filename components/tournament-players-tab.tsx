@@ -95,7 +95,7 @@ export function PlayersTab({ tournament }: { tournament: Tournament }) {
     setIsLoading((prev) => ({ ...prev, players: true }));
     try {
       const response = await fetch(
-        `http://localhost:4000/team/${teamId}/players`
+        `${process.env.NEXT_PUBLIC_BASE_URL}/team/${teamId}/players`
       );
       const data: ResponseBody<PlayersTeam> = await response.json();
 
@@ -104,7 +104,7 @@ export function PlayersTab({ tournament }: { tournament: Tournament }) {
       );
 
       const responseRegisteredPlayers = await fetch(
-        `http://localhost:4000/tournament/${tournamentSeason?.id}/teams/${teamId}/players`
+        `${process.env.NEXT_PUBLIC_BASE_URL}/tournament/${tournamentSeason?.id}/teams/${teamId}/players`
       );
 
       const dataRegisteredPlayers = await responseRegisteredPlayers.json();
@@ -174,7 +174,7 @@ export function PlayersTab({ tournament }: { tournament: Tournament }) {
       )?.id;
       // Chamada à API para salvar
       const response = await fetch(
-        `http://localhost:4000/tournament/${tournamentSeasonId}/teams/${selectedTeam.id}/players`,
+        `${process.env.NEXT_PUBLIC_BASE_URL}/tournament/${tournamentSeasonId}/teams/${selectedTeam.id}/players`,
         {
           method: "POST",
           headers: {

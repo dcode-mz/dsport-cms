@@ -167,7 +167,7 @@ export default function GamePage({
 
     const fetchRefereeRoles = async () => {
       try {
-        const response = await fetch(`http://localhost:4000/referee/roles`);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/referee/roles`);
         const data: ResponseBody<{ id: string; name: string }[]> =
           await response.json();
         setRefereeRoles(data.payload);
@@ -180,7 +180,7 @@ export default function GamePage({
 
     const fetchRefereeList = async () => {
       try {
-        const response = await fetch(`http://localhost:4000/referee`);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/referee`);
         const data: ResponseBody<Referee[]> = await response.json();
         setAvailableReferees(data.payload);
       } catch (err) {
@@ -194,7 +194,7 @@ export default function GamePage({
       try {
         setLoading(true);
         const response = await fetch(
-          `http://localhost:4000/match/${matchId}/players/registered`
+          `${process.env.NEXT_PUBLIC_BASE_URL}/match/${matchId}/players/registered`
         );
 
         if (!response.ok) {
@@ -233,7 +233,7 @@ export default function GamePage({
         } else {
           // Se não houver officials, buscar os roles e criar assignments vazios
           const rolesResponse = await fetch(
-            `http://localhost:4000/referee/roles`
+            `${process.env.NEXT_PUBLIC_BASE_URL}/referee/roles`
           );
           const rolesData: ResponseBody<{ id: string; name: string }[]> =
             await rolesResponse.json();
@@ -457,7 +457,7 @@ export default function GamePage({
 
     try {
       const response = await fetch(
-        `http://localhost:4000/match/${matchId}/convocations`,
+        `${process.env.NEXT_PUBLIC_BASE_URL}/match/${matchId}/convocations`,
         {
           method: "POST",
           headers: {
@@ -506,7 +506,7 @@ export default function GamePage({
 
     try {
       const response = await fetch(
-        `http://localhost:4000/match/${matchId}/lineup`,
+        `${process.env.NEXT_PUBLIC_BASE_URL}/match/${matchId}/lineup`,
         {
           method: "POST",
           headers: {
@@ -555,7 +555,7 @@ export default function GamePage({
 
     try {
       const response = await fetch(
-        `http://localhost:4000/match/${matchId}/referees`,
+        `${process.env.NEXT_PUBLIC_BASE_URL}/match/${matchId}/referees`,
         {
           method: "POST",
           headers: {

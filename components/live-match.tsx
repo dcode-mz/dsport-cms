@@ -424,7 +424,7 @@ export function MatchLive({
         else updatedMatch.matchStats.penaltyAwayScore += 1;
       }
 
-      await fetch("http://localhost:4000/match-events", {
+      await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/match-events`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

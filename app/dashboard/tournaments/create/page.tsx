@@ -19,7 +19,7 @@ import { TournamentCharacteristics } from "@/app/types/tournament";
 async function CreateTournamentPage() {
 
   const characteristicsData = await fetch(
-    "http://localhost:4000/tournament/characteristics",
+    `${process.env.NEXT_PUBLIC_BASE_URL}/tournament/characteristics`,
     {
       method: "GET",
     }

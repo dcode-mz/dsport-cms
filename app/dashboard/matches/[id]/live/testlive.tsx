@@ -17,7 +17,7 @@ import { MatchLive } from "@/components/live-match";
 async function MatchPage({ params }: { params: { id: string } }) {
   const { id } = await params;
 
-  const data = await fetch(`http://localhost:4000/match/${id}`, {
+  const data = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/match/${id}`, {
     method: "GET",
     next: {
       tags: ["get-match"],
@@ -25,7 +25,7 @@ async function MatchPage({ params }: { params: { id: string } }) {
   });
 
   const responseMatchTypes = await fetch(
-    `http://localhost:4000/match-events/types`
+    `${process.env.NEXT_PUBLIC_BASE_URL}/match-events/types`
   );
   const response = await data.json();
   const matchTypes = await responseMatchTypes.json();

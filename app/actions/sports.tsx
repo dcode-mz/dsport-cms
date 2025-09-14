@@ -23,7 +23,7 @@ export async function createSport(data: {
     throw new Error("Dados inválidos");
   }
 
-  await fetch("http://localhost:4000/sports/", {
+  await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/sports/`, {
     method: "POST",
     body: JSON.stringify(data),
     headers: {
@@ -35,7 +35,7 @@ export async function createSport(data: {
 }
 
 export async function deleteSport(data: { id: string }) {
-  await fetch(`http://localhost:4000/sports/${data.id}`, {
+  await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/sports/${data.id}`, {
     method: "DELETE",
   });
 
