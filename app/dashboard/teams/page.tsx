@@ -19,26 +19,41 @@ import CreateTeamDialog from "@/components/create-team-dialog";
 import { AppTable } from "@/components/app-table";
 
 async function TeamPage() {
-  const data = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/team`, {
-    method: "GET",
-    next: {
-      tags: ["get-teams"],
-    },
-  });
+  let response: ResponseBody<Team[]> | null = null;
+  let characteristicsResponse: ResponseBody<TeamCharacteristics> | null = null;
 
-  const characteristicsData = await fetch(
-    `${process.env.NEXT_PUBLIC_BASE_URL}/team/characteristics`,
-    {
+  try {
+    const data = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/team`, {
       method: "GET",
       next: {
-        tags: ["get-characteristics-teams"],
+        tags: ["get-teams"],
       },
-    }
-  );
-  const response: ResponseBody<Team[]> = await data.json();
+    });
 
-  const characteristicsResponse: ResponseBody<TeamCharacteristics> =
-    await characteristicsData.json();
+    if (data.ok) {
+      response = await data.json();
+    }
+  } catch (error) {
+    console.error('Failed to fetch teams:', error);
+  }
+
+  try {
+    const characteristicsData = await fetch(
+      `${process.env.NEXT_PUBLIC_BASE_URL}/team/characteristics`,
+      {
+        method: "GET",
+        next: {
+          tags: ["get-characteristics-teams"],
+        },
+      }
+    );
+
+    if (characteristicsData.ok) {
+      characteristicsResponse = await characteristicsData.json();
+    }
+  } catch (error) {
+    console.error('Failed to fetch team characteristics:', error);
+  }
 
   return (
     <SidebarProvider>
@@ -67,10 +82,12 @@ async function TeamPage() {
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 pt-10 md:pl-20">
           <h1 className="text-3xl font-bold">Equipas</h1>
-          <CreateTeamDialog
-            characteristicsResponse={characteristicsResponse.payload}
-          />
-          <AppTable columns={columns} data={response.payload} />
+          {characteristicsResponse?.payload && (
+            <CreateTeamDialog
+              characteristicsResponse={characteristicsResponse.payload}
+            />
+          )}
+          <AppTable columns={columns} data={response?.payload || []} />
         </div>
       </SidebarInset>
     </SidebarProvider>

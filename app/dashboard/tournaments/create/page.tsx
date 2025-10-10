@@ -17,16 +17,22 @@ import { ResponseBody } from "@/app/types/response-body";
 import { TournamentCharacteristics } from "@/app/types/tournament";
 
 async function CreateTournamentPage() {
+  let characteristicsResponse: ResponseBody<TournamentCharacteristics> | null = null;
 
-  const characteristicsData = await fetch(
-    `${process.env.NEXT_PUBLIC_BASE_URL}/tournament/characteristics`,
-    {
-      method: "GET",
+  try {
+    const characteristicsData = await fetch(
+      `${process.env.NEXT_PUBLIC_BASE_URL}/tournament/characteristics`,
+      {
+        method: "GET",
+      }
+    );
+
+    if (characteristicsData.ok) {
+      characteristicsResponse = await characteristicsData.json();
     }
-  );
-
-  const characteristicsResponse: ResponseBody<TournamentCharacteristics> =
-    await characteristicsData.json();
+  } catch (error) {
+    console.error("Failed to fetch tournament characteristics:", error);
+  }
 
   return (
     <SidebarProvider>
@@ -56,9 +62,11 @@ async function CreateTournamentPage() {
         <div className="flex flex-1 flex-col gap-4 p-4 pt-10 md:pl-20">
           <h1 className="text-3xl font-bold">Criar Novo Torneio</h1>
 
-          <CreateTournamentForm
-            characteristicsResponse={characteristicsResponse.payload}
-          />
+          {characteristicsResponse?.payload && (
+            <CreateTournamentForm
+              characteristicsResponse={characteristicsResponse.payload}
+            />
+          )}
         </div>
       </SidebarInset>
     </SidebarProvider>

@@ -19,13 +19,22 @@ import { ResponseBody } from "@/app/types/response-body";
 import CreateSeasonDialog from "@/components/create-season-dialog";
 
 async function SeasonPage() {
-  const data = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/season`, {
-    method: "GET",
-    next: {
-      tags: ["get-season"],
-    },
-  });
-  const response: ResponseBody<Season[]> = await data.json();
+  let response: ResponseBody<Season[]> | null = null;
+  
+  try {
+    const data = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/season`, {
+      method: "GET",
+      next: {
+        tags: ["get-season"],
+      },
+    });
+    
+    if (data.ok) {
+      response = await data.json();
+    }
+  } catch (error) {
+    console.error('Failed to fetch seasons:', error);
+  }
 
   return (
     <SidebarProvider>
@@ -55,7 +64,7 @@ async function SeasonPage() {
         <div className="flex flex-1 flex-col gap-4 p-4 pt-10 md:pl-20">
           <h1 className="text-3xl font-bold">Temporadas</h1>
           <CreateSeasonDialog />
-          <AppTable columns={columns} data={response.payload} />
+          <AppTable columns={columns} data={response?.payload || []} />
         </div>
       </SidebarInset>
     </SidebarProvider>

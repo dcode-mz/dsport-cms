@@ -19,14 +19,22 @@ import { Club } from "@/app/types/club";
 import { AppTable } from "@/components/app-table";
 
 async function ClubPage() {
-  const data = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/club`, {
-    method: "GET",
-    next: {
-      tags: ["get-clubs"],
-    },
-  });
+  let response: ResponseBody<Club[]> | null = null;
 
-  const response: ResponseBody<Club[]> = await data.json();
+  try {
+    const data = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/club`, {
+      method: "GET",
+      next: {
+        tags: ["get-clubs"],
+      },
+    });
+
+    if (data.ok) {
+      response = await data.json();
+    }
+  } catch (error) {
+    console.error('Failed to fetch clubs:', error);
+  }
 
   return (
     <SidebarProvider>
@@ -56,7 +64,7 @@ async function ClubPage() {
         <div className="flex flex-1 flex-col gap-4 p-4 pt-10 md:pl-20">
           <h1 className="text-3xl font-bold">Clubes</h1>
           <CreateClubDialog />
-          <AppTable columns={columns} data={response.payload} />
+          <AppTable columns={columns} data={response?.payload || []} />
         </div>
       </SidebarInset>
     </SidebarProvider>

@@ -19,20 +19,35 @@ import { Player, PlayerCharacteristics } from "@/app/types/player";
 import CreatePlayerDialog from "@/components/create-player-dialog";
 
 async function ClubPage() {
-  const data = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/player`, {
-    method: "GET",
-    next: {
-      tags: ["get-players"],
-    },
-  });
+  let response: ResponseBody<Player[]> | null = null;
+  let playerCharacteristics: ResponseBody<PlayerCharacteristics> | null = null;
 
-  const response: ResponseBody<Player[]> = await data.json();
+  try {
+    const data = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/player`, {
+      method: "GET",
+      next: {
+        tags: ["get-players"],
+      },
+    });
 
-  const playerCharacteristicsResponse = await fetch(
-    `${process.env.NEXT_PUBLIC_BASE_URL}/player/characteristics`
-  );
-  const playerCharacteristics: ResponseBody<PlayerCharacteristics> =
-    await playerCharacteristicsResponse.json();
+    if (data.ok) {
+      response = await data.json();
+    }
+  } catch (error) {
+    console.error('Failed to fetch players:', error);
+  }
+
+  try {
+    const playerCharacteristicsResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_BASE_URL}/player/characteristics`
+    );
+
+    if (playerCharacteristicsResponse.ok) {
+      playerCharacteristics = await playerCharacteristicsResponse.json();
+    }
+  } catch (error) {
+    console.error('Failed to fetch player characteristics:', error);
+  }
 
   return (
     <SidebarProvider>
@@ -61,10 +76,12 @@ async function ClubPage() {
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 pt-10 md:pl-20">
           <h1 className="text-3xl font-bold">Jogadores</h1>
-          <CreatePlayerDialog
-            playerCharacteristics={playerCharacteristics.payload}
-          />
-          <AppTable columns={columns} data={response.payload} />
+          {playerCharacteristics?.payload && (
+            <CreatePlayerDialog
+              playerCharacteristics={playerCharacteristics.payload}
+            />
+          )}
+          <AppTable columns={columns} data={response?.payload || []} />
         </div>
       </SidebarInset>
     </SidebarProvider>
