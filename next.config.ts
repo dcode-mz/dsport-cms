@@ -1,24 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  // experimental: {
-  //   serverActions: {
-  //     bodySizeLimit: "2mb",
-  //   },
-  // },
-  // serverRuntimeConfig: {
-  //   cloudinary: {
-  //     cloudName: process.env.CLOUDINARY_CLOUD_NAME,
-  //     apiKey: process.env.CLOUDINARY_API_KEY,
-  //     apiSecret: process.env.CLOUDINARY_API_SECRET,
-  //   },
-  // },
-  // publicRuntimeConfig: {
-  //   cloudinary: {
-  //     cloudName: process.env.CLOUDINARY_CLOUD_NAME,
-  //   },
-  // },
   images: {
     domains: ["res.cloudinary.com"],
   },
@@ -28,6 +10,19 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  output: 'standalone',
+  // Disable static generation for pages that require API calls
+  trailingSlash: false,
+  // server: {
+  //   actions: {
+  //     allowedOrigins: ["localhost:3998"],
+  //   },
+  // },
+  // env: {
+  //   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
+  //   CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
+  //   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
+  // },
 };
 
 export default nextConfig;
